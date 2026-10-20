@@ -9,6 +9,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
 </head>
 <body>
   <section id="login" class="login">
@@ -25,7 +26,7 @@
   </section></main></div>
   <section id="viewer"><div class="viewbar"><strong id="moduleTitle"></strong><button id="back" class="plain">Voltar aos sistemas</button></div><iframe id="moduleFrame" title="Sistema selecionado"></iframe></section>
   <script>
-    const firebaseConfig={apiKey:"AIzaSyBADDrVhqgEKWcP51quHWp5Qk3eBIh_64o",authDomain:"reserva-de-veiculos-71157.firebaseapp.com",databaseURL:"https://reserva-de-veiculos-71157-default-rtdb.firebaseio.com",projectId:"reserva-de-veiculos-71157",storageBucket:"reserva-de-veiculos-71157.firebasestorage.app",messagingSenderId:"709523825486",appId:"1:709523825486:web:e992a9142cf2404eabb41f"};
+    const firebaseConfig=window.PCE_FIREBASE_CONFIG;
     if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);const auth=firebase.auth();
     const modules={reposicao:["Reposição e pedidos","modulos/reposição de estoque e pedidos.html"],analise:["Análise de redução de estoque","modulos/analise de redução de estoque.html"],escala:["Escalas e férias","modulos/escala.html"],malote:["Malote e veículos","modulos/malote20.html"]};
     const login=document.getElementById('login'),app=document.getElementById('app'),viewer=document.getElementById('viewer');
