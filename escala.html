@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestão de Colaboradores e Férias</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+    h1 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
+    
+    .tabs { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 20px; background: #fff; border-radius: 8px 8px 0 0; overflow: hidden; }
+    .tab-button { flex: 1; padding: 15px; border: none; background: #eee; cursor: pointer; font-size: 14px; font-weight: bold; color: #555; transition: 0.3s; }
+    .tab-button.active { background: #007bff; color: white; }
+    .tab-button:hover:not(.active) { background: #ddd; }
+    
+    .tab-content { display: none; background: white; padding: 20px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .tab-content.active { display: block; }
+
+    .form-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 6px; }
+    .form-group input, .form-group select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; flex: 1; min-width: 130px; }
+    .btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 13px; }
+    .btn-add { background: #28a745; color: white; }
+    .btn-add:hover { background: #218838; }
+    .btn-edit { background: #ffc107; color: #212529; margin-right: 5px; }
+    .btn-edit:hover { background: #e0a800; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-danger:hover { background: #c82333; }
+    .btn-save { background: #007bff; color: white; margin-right: 5px; }
+    .btn-export { background: #17a2b8; color: white; margin-right: 5px; }
+    .btn-export:hover { background: #138496; }
+    .btn-reset { background: #6c757d; color: white; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #dee2e6; padding: 6px 8px; text-align: center; font-size: 12px; }
+    th { background-color: #343a40; color: white; }
+    tr:nth-child(even) { background-color: #f8f9fa; }
+    tr:hover { background-color: #f1f1f1; }
+    
+    .badge { padding: 5px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; display: inline-block; text-align: center; }
+    .bg-ok { background-color: #28a745; }
+    .bg-atencao { background-color: #ffc107; color: #212529; }
+    .bg-critico { background-color: #dc3545; }
+    .bg-info { background-color: #17a2b8; color: white; }
+
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 10px; }
+    .card { background: #fff; border-left: 5px solid #007bff; padding: 12px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+    .card h3 { margin: 0 0 5px 0; font-size: 15px; color: #007bff; }
+    .card p { margin: 3px 0; font-size: 12px; color: #555; }
+
+    .card-mes-ferias { background: #f8f9fa; border: 1px solid #e0e0e0; border-top: 4px solid #17a2b8; padding: 10px; border-radius: 6px; }
+    .card-mes-ferias h4 { margin: 0 0 8px 0; color: #17a2b8; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+    .card-mes-ferias ul { margin: 0; padding-left: 18px; font-size: 11px; color: #333; }
+    .card-mes-ferias li { margin-bottom: 4px; }
+
+    .alert-rh-box { background: #fff3cd; border: 1px solid #ffeeba; border-left: 5px solid #ffc107; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+    .alert-rh-card { background: #ffffff; border: 1px solid #e2e3e5; padding: 12px; border-radius: 6px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+    .modal-content { background: white; padding: 25px; border-radius: 8px; width: 480px; max-width: 90%; }
+    .modal-content h3 { margin-top: 0; }
+    .modal-content label { display: block; margin-top: 10px; font-weight: bold; font-size: 12px; }
+    .modal-content input, .modal-content select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; }
+    .modal-actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+
+    .table-escala-container { overflow-x: auto; max-width: 100%; margin-top: 15px; }
+    .table-escala th, .table-escala td { min-width: 38px; padding: 3px; font-size: 11px; }
+    .table-escala .fixed-col { position: sticky; left: 0; background: #fff; z-index: 2; text-align: left; }
+    .table-escala th.fixed-col { background: #343a40; z-index: 3; }
+    .tr-header-turno { background-color: #e9ecef; font-weight: bold; text-align: left; }
+    .select-escala { width: 100%; border: none; background: transparent; font-size: 11px; font-weight: bold; text-align-last: center; cursor: pointer; padding: 2px 0; color: #000; pointer-events: none; }
+    
+    .drag-cell { cursor: grab; user-select: none; }
+    .drag-cell.arrastando { opacity: 0.5; border: 2px dashed #007bff !important; }
+    .drag-cell.destaque-hover { outline: 2px solid #28a745 !important; background-color: #e8f5e9 !important; }
+
+    .cell-t { background-color: #ffffff; }
+    .cell-fg { background-color: #fff59d; font-weight: bold; }
+    .cell-dsr { background-color: #ffcc80; font-weight: bold; }
+    .cell-ff { background-color: #ef9a9a; font-weight: bold; }
+    .cell-fe { background-color: #90caf9; font-weight: bold; }
+    .cell-tr { background-color: #ce93d8; font-weight: bold; }
+
+    .cell-alterada {
+      border: 2px solid #dc3545 !important;
+      outline: 2px solid #dc3545 !important;
+      position: relative;
+    }
+
+    .painel-escala-12x36 { background: #eef7ff; border: 1px solid #b8daff; padding: 12px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .painel-escala-12x36 select, .painel-escala-12x36 input { padding: 4px; font-size: 11px; border: 1px solid #aaa; border-radius: 4px; }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+  <h1>Painel de Gestão de Colaboradores</h1>
+
+  <div class="tabs">
+    <button class="tab-button active" onclick="openTab('colaboradores', event)">👥 Colaboradores</button>
+    <button class="tab-button" onclick="openTab('ferias', event)">📅 Programação de Férias</button>
+    <button class="tab-button" onclick="openTab('escala', event)">🗓️ Escala Mensal</button>
+    <button class="tab-button" onclick="openTab('historico', event)">📜 Histórico de Escalas</button>
+    <button class="tab-button" onclick="openTab('aniversariantes', event)">🎂 Aniversariantes do Mês</button>
+  </div>
+
+  <!-- ABA 1: COLABORADORES -->
+  <div id="colaboradores" class="tab-content active">
+    <h3>Adicionar Novo Colaborador</h3>
+    <form id="form-colaborador" class="form-group" onsubmit="adicionarColaborador(event)">
+      <input type="text" id="mat" placeholder="Matrícula">
+      <input type="text" id="nome" placeholder="Nome Completo" required>
+      <input type="date" id="admissao" title="Data de Admissão">
+      <input type="text" id="posto" placeholder="Posto / Função" required>
+      <select id="turno" onchange="atualizarHorarioPadraoForm()" required>
+        <option value="Comercial">Comercial</option>
+        <option value="1º Turno">1º Turno</option>
+        <option value="2º Turno">2º Turno</option>
+        <option value="3º Turno">3º Turno</option>
+        <option value="12x36">12x36</option>
+        <option value="Malote">Malote</option>
+      </select>
+      <input type="text" id="horario" placeholder="Horário" value="08:00 AS 17:48">
+      <input type="date" id="nascimento" title="Data de Nascimento" required>
+      <button type="submit" class="btn btn-add">+ Incluir</button>
+    </form>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+      <h3>Lista de Colaboradores (<span id="total-colab">0</span>)</h3>
+      <div>
+        <button class="btn btn-export" onclick="exportarHTMLComAlteracoes()">📥 Baixar HTML com Alterações Salvas</button>
+        <button class="btn btn-danger" onclick="limparCacheForcado()">🧹 Resetar Memória</button>
+        <button class="btn btn-reset" onclick="restaurarListaPadrao()">🔄 Lista Original</button>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Matrícula</th>
+          <th>Nome</th>
+          <th>Admissão</th>
+          <th>Posto / Função</th>
+          <th>Turno</th>
+          <th>Horário</th>
+          <th>Nascimento</th>
+          <th>Última Férias Gozada</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tbl-colaboradores"></tbody>
+    </table>
+  </div>
+
+  <!-- ABA 2: PROGRAMAÇÃO DE FÉRIAS -->
+  <div id="ferias" class="tab-content">
+    <div id="painel-alertas-rh" class="alert-rh-box" style="display: none;">
+      <h4 style="margin: 0 0 10px 0; color: #856404; font-size: 15px; display: flex; align-items: center; gap: 8px;">
+        📢 Alerta de Envio ao RH (Férias a menos de 40 dias do início):
+      </h4>
+      <div id="lista-alertas-rh"></div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+      <h3>Programação e Controle de Férias</h3>
+      <div>
+        <label for="ferias-ano"><strong>Ano de Consulta:</strong> </label>
+        <select id="ferias-ano" onchange="renderizarFerias()" style="padding: 5px; border-radius: 4px; font-weight: bold;">
+          <option value="2024">2024</option>
+          <option value="2025">2025</option>
+          <option value="2026" selected>2026</option>
+          <option value="2027">2027</option>
+          <option value="2028">2028</option>
+          <option value="2029">2029</option>
+          <option value="2030">2030</option>
+        </select>
+      </div>
+    </div>
+    
+    <div style="margin-bottom: 20px; margin-top: 10px;">
+      <h4 style="margin-bottom: 8px; color: #2c3e50;">📅 Colaboradores por Mês Inicial de Férias (Ano Selecionado)</h4>
+      <div id="grid-resumo-ferias-meses" class="cards-grid"></div>
+    </div>
+
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+    <h4 style="margin-bottom: 10px; color: #2c3e50;">📋 Tabela de Programação Geral</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Matrícula</th>
+          <th>Nome</th>
+          <th>Período Aquisitivo (Ano Consulta)</th>
+          <th>Vencimento Direto</th>
+          <th>Início Férias</th>
+          <th>Fim Férias</th>
+          <th>Data Retorno</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tbl-ferias"></tbody>
+    </table>
+  </div>
+
+  <!-- ABA 3: ESCALA MENSAL -->
+  <div id="escala" class="tab-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+      <h3>Escala de Trabalho Mensal</h3>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <label><strong>Mês/Ano:</strong></label>
+        <select id="escala-mes" onchange="gerarEscalaMensal()" style="padding: 5px; border-radius: 4px;">
+          <option value="0">Janeiro</option>
+          <option value="1">Fevereiro</option>
+          <option value="2">Março</option>
+          <option value="3">Abril</option>
+          <option value="4">Maio</option>
+          <option value="5">Junho</option>
+          <option value="6">Julho</option>
+          <option value="7">Agosto</option>
+          <option value="8">Setembro</option>
+          <option value="9">Outubro</option>
+          <option value="10">Novembro</option>
+          <option value="11">Dezembro</option>
+        </select>
+        <input type="number" id="escala-ano" value="2026" onchange="gerarEscalaMensal()" style="width: 80px; padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
+        <button class="btn btn-save" onclick="salvarEscalaManual()">💾 Salvar Escala</button>
+        <button class="btn btn-export" onclick="exportarHTMLComAlteracoes()">📥 Baixar HTML Atualizado</button>
+      </div>
+    </div>
+
+    <!-- PAINEL DE AUTOMAÇÃO DE ESCALA ESPELHADA E INDIVIDUAL -->
+    <div class="painel-escala-12x36">
+      <strong>⚡ Gerador Automático 12x36 / Malote:</strong>
+      
+      <label>1º Colaborador:</label>
+      <select id="sel-colab-1"></select>
+
+      <label>Status no Dia de Início:</label>
+      <select id="status-colab-1">
+        <option value="T">Inicia Trabalhando (T)</option>
+        <option value="FG">Inicia Folgando (FG)</option>
+      </select>
+
+      <span style="color:#007bff; font-weight:bold;">|</span>
+
+      <label>2º Colaborador (Opcional - Espelho):</label>
+      <select id="sel-colab-2"></select>
+
+      <label>Início do Ciclo:</label>
+      <input type="date" id="dt-inicio-12x36">
+
+      <button class="btn btn-add" onclick="aplicarPadrao12x36()">🔄 Gerar Escala Alternada</button>
+    </div>
+
+    <p><small>
+      <strong>Legenda:</strong> 
+      <span style="background:#ffffff; border:1px solid #ccc; padding:2px 6px; border-radius:3px;">T = Trabalho</span> | 
+      <span style="background:#fff59d; padding:2px 6px; border-radius:3px;">FG = Folga</span> | 
+      <span style="background:#ffcc80; padding:2px 6px; border-radius:3px;">DSR = Descanso Semanal</span> | 
+      <span style="background:#ef9a9a; padding:2px 6px; border-radius:3px;">FF = Feriado</span> | 
+      <span style="background:#90caf9; padding:2px 6px; border-radius:3px;">FE = Férias</span> | 
+      <span style="background:#ce93d8; padding:2px 6px; border-radius:3px;">TR = Treinamento</span>
+      <br>👉 <strong>Troca Rápida:</strong> Clique em uma célula, mantenha o botão pressionado, arraste até a folga do mesmo funcionário e solte. Para mudar via menu, dê <strong>duplo clique</strong>.
+    </small></p>
+
+    <div id="alerta-destaque-alteracoes" style="display:none; background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 13px;">
+      ⚠️ <strong>Modo de Comparação:</strong> As células circuladas em vermelho indicam as alterações feitas nesta versão em relação à escala salva anterior.
+    </div>
+
+    <div class="table-escala-container">
+      <table class="table-escala">
+        <thead id="thead-escala"></thead>
+        <tbody id="tbody-escala"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ABA HISTÓRICO DE ESCALAS -->
+  <div id="historico" class="tab-content">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h3>📜 Histórico de Registros e Comparação de Alterações</h3>
+      <button class="btn btn-danger" onclick="limparHistoricoEscalas()">🗑️ Limpar Histórico</button>
+    </div>
+    <p><small>Toda vez que uma escala é salva, a versão é gravada com a data e o resumo de todas as alterações feitas comparadas com o salvamento anterior.</small></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Data/Hora do Salvamento</th>
+          <th>Mês / Ano da Escala</th>
+          <th>Resumo das Alterações com Relação à Escala Anterior</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tbl-historico-escala"></tbody>
+    </table>
+  </div>
+
+  <!-- ABA 4: ANIVERSARIANTES -->
+  <div id="aniversariantes" class="tab-content">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h3>Aniversariantes do Mês</h3>
+      <div>
+        <label for="select-mes"><strong>Filtrar Mês:</strong> </label>
+        <select id="select-mes" onchange="renderizarAniversariantes()" style="padding: 5px; border-radius: 4px;">
+          <option value="0">Janeiro</option>
+          <option value="1">Fevereiro</option>
+          <option value="2">Março</option>
+          <option value="3">Abril</option>
+          <option value="4">Maio</option>
+          <option value="5">Junho</option>
+          <option value="6">Julho</option>
+          <option value="7">Agosto</option>
+          <option value="8">Setembro</option>
+          <option value="9">Outubro</option>
+          <option value="10">Novembro</option>
+          <option value="11">Dezembro</option>
+        </select>
+      </div>
+    </div>
+    <div id="grid-aniversariantes" class="cards-grid"></div>
+  </div>
+
+  <!-- MODAL DE EDIÇÃO -->
+  <div id="modal-editar" class="modal">
+    <div class="modal-content">
+      <h3>Editar Colaborador</h3>
+      <input type="hidden" id="edit-index">
+      
+      <label>Matrícula:</label>
+      <input type="text" id="edit-mat">
+      
+      <label>Nome Completo:</label>
+      <input type="text" id="edit-nome" required>
+      
+      <label>Data de Admissão:</label>
+      <input type="date" id="edit-admissao">
+      
+      <label>Posto / Função:</label>
+      <input type="text" id="edit-posto" required>
+
+      <label>Turno:</label>
+      <select id="edit-turno" onchange="atualizarHorarioPadraoModal()" required>
+        <option value="Comercial">Comercial</option>
+        <option value="1º Turno">1º Turno</option>
+        <option value="2º Turno">2º Turno</option>
+        <option value="3º Turno">3º Turno</option>
+        <option value="12x36">12x36</option>
+        <option value="Malote">Malote</option>
+      </select>
+
+      <label>Horário do Turno:</label>
+      <input type="text" id="edit-horario" placeholder="Ex: 08:00 AS 17:48">
+      
+      <label>Data de Nascimento:</label>
+      <input type="date" id="edit-nascimento" required>
+
+      <label>Data de Início da Última Férias Gozada (Anterior a Hoje):</label>
+      <input type="date" id="edit-ultima-ferias">
+
+      <label>Ano de Vencimento da Última Férias Gozada:</label>
+      <input type="number" id="edit-ano-ref-ultima" placeholder="Ex: 2025">
+
+      <div class="modal-actions">
+        <button class="btn" onclick="fecharModal()">Cancelar</button>
+        <button class="btn btn-save" onclick="salvarEdicao()">Salvar Alterações</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const feriadosNacionais = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '12-25'];
+    const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+    const horáriosPadraoTurnos = {
+      'Comercial': '08:00 AS 17:48',
+      '1º Turno': '06:00 AS 15:48',
+      '2º Turno': '14:00 AS 23:48',
+      '3º Turno': '22:00 AS 07:48',
+      '12x36': '08:00 AS 20:00',
+      'Malote': '08:00 AS 20:00'
+    };
+
+    const escalasIniciais = {};
+    const historicoInicial = [];
+
+    const listaInicial = [
+      { matricula: '94130', nome: 'ANTONIO APARECIDO PIOVEZAN', admissao: '2014-01-09', posto: 'MOTORISTA', turno: 'Malote', horario: '08:00 AS 20:00', nascimento: '1988-02-21', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '92148', nome: 'DANIEL GONÇALVES DA SILVA', admissao: '2008-08-04', posto: 'ALMOXARIFE', turno: '12x36', horario: '08:00 AS 20:00', nascimento: '1988-02-21', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '91996', nome: 'EDIR LUIZ WARKEN', admissao: '2005-09-25', posto: 'ASSISTENTE ALMOXARIFADO', turno: 'Comercial', horario: '08:00 AS 17:48', nascimento: '1981-06-18', ultimaFerias: '2025-09-25', anoRefUltima: 2024, feriasPorAno: {} },
+      { matricula: '92282', nome: 'ANDERSON LUIZ MUCKE', admissao: '2012-11-20', posto: 'ASSISTENTE ALMOXARIFADO', turno: 'Comercial', horario: '08:00 AS 17:48', nascimento: '1994-01-13', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '148094', nome: 'BRUNO DE OLIVEIRA RICIERI', admissao: '2024-10-14', posto: 'AUX.ADMINISTRATIVO', turno: 'Comercial', horario: '08:00 AS 17:48', nascimento: '2002-02-08', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '149629', nome: 'GEISIANE CORREIA NEVES', admissao: '2024-11-22', posto: 'AUX.ADMINISTRATIVO', turno: 'Comercial', horario: '08:00 AS 17:48', nascimento: '2005-02-17', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '155274', nome: 'ALEXANDER LIMA DA SILVA', admissao: '2025-04-16', posto: 'ALMOXARIFE', turno: '1º Turno', horario: '06:00 AS 15:48', nascimento: '1996-03-03', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '155315', nome: 'GIOVANI WELINTON DA SILVA', admissao: '2025-08-01', posto: 'ALMOXARIFE', turno: '1º Turno', horario: '06:00 AS 15:48', nascimento: '2004-02-25', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '112539', nome: 'FILIPE SANTOS CRUZ', admissao: '2022-02-07', posto: 'ALMOXARIFE', turno: '1º Turno', horario: '06:00 AS 15:48', nascimento: '1999-03-21', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '-', nome: 'VICTOR SOUZA DA ROCHA', admissao: '', posto: 'ALMOXARIFE', turno: '1º Turno', horario: '06:00 AS 15:48', nascimento: '2009-02-24', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '158520', nome: 'ANDREY GABRIEL GRIEGER DA SILVA', admissao: '2025-07-11', posto: 'ALMOXARIFE', turno: '2º Turno', horario: '14:00 AS 23:48', nascimento: '2004-08-24', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '165695', nome: 'GUILHERME SEBASTIAN DA SILVA ALVES', admissao: '2026-02-06', posto: 'ALMOXARIFE', turno: '2º Turno', horario: '14:00 AS 23:48', nascimento: '2005-11-23', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '169483', nome: 'IRAN VICTOR DA SILVA', admissao: '2026-04-09', posto: 'ALMOXARIFE', turno: '2º Turno', horario: '14:00 AS 23:48', nascimento: '1997-08-08', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '154236', nome: 'ALESSANDRO VON TRYLLER', admissao: '2025-03-21', posto: 'ALMOXARIFE', turno: '2º Turno', horario: '14:00 AS 23:48', nascimento: '1982-10-19', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '176415', nome: 'TICIANE TRINDADE LEMOS', admissao: '2025-10-01', posto: 'ALMOXARIFE', turno: '3º Turno', horario: '22:00 AS 07:48', nascimento: '2008-11-09', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '169309', nome: 'JONAS AURELIO DA SILVA', admissao: '2026-04-02', posto: 'ALMOXARIFE', turno: '3º Turno', horario: '22:00 AS 07:48', nascimento: '2008-04-25', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '154234', nome: 'DAVID HENRIQUE MARTINS DA SILVA', admissao: '2025-03-21', posto: 'ALMOXARIFE', turno: '3º Turno', horario: '22:00 AS 07:48', nascimento: '2005-03-09', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '166253', nome: 'EDUARDO DA SILVA', admissao: '2026-02-18', posto: 'APRENDIZ', turno: 'Comercial', horario: '08:00 AS 17:48', nascimento: '2009-04-28', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '166248', nome: 'KAUAN EDUARDO ALVES SOARES', admissao: '2026-02-18', posto: 'APRENDIZ', turno: 'Comercial', horario: '08:00 AS 17:48', nascimento: '2011-11-12', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '172041', nome: 'CAIO SCHAUFELBERGER SCHROEDER', admissao: '2026-06-15', posto: 'APRENDIZ', turno: 'Comercial', horario: '08:00 AS 17:48', nascimento: '2012-02-28', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} },
+      { matricula: '155469', nome: 'KAUAN CAVALHEIRO DE SOUZA', admissao: '2025-04-22', posto: 'APRENDIZ', turno: 'Comercial', horario: '08:00 AS 17:48', nascimento: '2008-07-21', ultimaFerias: '', anoRefUltima: null, feriasPorAno: {} }
+    ];
+
+    let colaboradores = [];
+    let escalasSalvas = {};
+    let historicoEscalas = [];
+    let alteracoesParaDestaque = [];
+    
+    let tdOrigemArrasto = null;
+    let estaArrastando = false;
+
+    function iniciarSistema() {
+      try {
+        const dadosSalvos = localStorage.getItem('colaboradores_v120');
+        if (dadosSalvos) {
+          colaboradores = JSON.parse(dadosSalvos);
+          colaboradores.forEach(c => { if (!c.feriasPorAno) c.feriasPorAno = {}; });
+        } else {
+          colaboradores = JSON.parse(JSON.stringify(listaInicial));
+        }
+
+        const escalasData = localStorage.getItem('escalas_v120');
+        if (escalasData) {
+          escalasSalvas = JSON.parse(escalasData);
+        } else if (typeof escalasIniciais !== 'undefined') {
+          escalasSalvas = JSON.parse(JSON.stringify(escalasIniciais));
+        }
+
+        const histData = localStorage.getItem('historico_escalas_v120');
+        if (histData) {
+          historicoEscalas = JSON.parse(histData);
+        } else if (typeof historicoInicial !== 'undefined') {
+          historicoEscalas = JSON.parse(JSON.stringify(historicoInicial));
+        }
+      } catch (e) {
+        colaboradores = JSON.parse(JSON.stringify(listaInicial));
+      }
+
+      const mesAtual = new Date().getMonth();
+      const selectMes = document.getElementById('select-mes');
+      if (selectMes) selectMes.value = mesAtual;
+      
+      const selectEscalaMes = document.getElementById('escala-mes');
+      if (selectEscalaMes) selectEscalaMes.value = mesAtual;
+
+      document.addEventListener('mouseup', finalizarArrastoGlobal);
+
+      renderizarTudo();
+      carregarCombosColaboradores12x36();
+    }
+
+    function salvarNoStorage() {
+      try {
+        localStorage.setItem('colaboradores_v120', JSON.stringify(colaboradores));
+        localStorage.setItem('escalas_v120', JSON.stringify(escalasSalvas));
+        localStorage.setItem('historico_escalas_v120', JSON.stringify(historicoEscalas));
+      } catch (e) {}
+    }
+
+    function exportarHTMLComAlteracoes() {
+      salvarNoStorage();
+      const docHtml = document.documentElement.cloneNode(true);
+
+      const scriptElement = docHtml.querySelector('script');
+      if (scriptElement) {
+        let scriptText = scriptElement.innerHTML;
+
+        const regexLista = /const listaInicial = \[\s*[\s\S]*?\n\s*\];/;
+        const novaListaTexto = `const listaInicial = ${JSON.stringify(colaboradores, null, 2)};`;
+        scriptText = scriptText.replace(regexLista, novaListaTexto);
+
+        const regexEscalas = /const escalasIniciais = \{[\s\S]*?\};/;
+        const novaEscalasTexto = `const escalasIniciais = ${JSON.stringify(escalasSalvas, null, 2)};`;
+        scriptText = scriptText.replace(regexEscalas, novaEscalasTexto);
+
+        const regexHistorico = /const historicoInicial = \[[\s\S]*?\];/;
+        const novoHistoricoTexto = `const historicoInicial = ${JSON.stringify(historicoEscalas, null, 2)};`;
+        scriptText = scriptText.replace(regexHistorico, novoHistoricoTexto);
+
+        scriptElement.innerHTML = scriptText;
+      }
+
+      const blob = new Blob(['<!DOCTYPE html>\n' + docHtml.outerHTML], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'painel_gestao_colaboradores_atualizado.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      alert('📥 Arquivo HTML com todas as alterações, escalas e histórico embutidos com sucesso!');
+    }
+
+    function limparCacheForcado() {
+      localStorage.clear();
+      colaboradores = JSON.parse(JSON.stringify(listaInicial));
+      escalasSalvas = JSON.parse(JSON.stringify(escalasIniciais));
+      historicoEscalas = JSON.parse(JSON.stringify(historicoInicial));
+      salvarNoStorage();
+      renderizarTudo();
+      carregarCombosColaboradores12x36();
+      alert('Memória resetada para o padrão!');
+    }
+
+    function restaurarListaPadrao() {
+      colaboradores = JSON.parse(JSON.stringify(listaInicial));
+      salvarNoStorage();
+      renderizarTudo();
+      carregarCombosColaboradores12x36();
+    }
+
+    function atualizarHorarioPadraoForm() {
+      const turnoSel = document.getElementById('turno').value;
+      const horarioInput = document.getElementById('horario');
+      if (horáriosPadraoTurnos[turnoSel]) {
+        horarioInput.value = horáriosPadraoTurnos[turnoSel];
+      }
+    }
+
+    function atualizarHorarioPadraoModal() {
+      const turnoSel = document.getElementById('edit-turno').value;
+      const horarioInput = document.getElementById('edit-horario');
+      if (horáriosPadraoTurnos[turnoSel]) {
+        horarioInput.value = horáriosPadraoTurnos[turnoSel];
+      }
+    }
+
+    function renderizarTudo() {
+      renderizarColaboradores();
+      renderizarFerias();
+      renderizarAniversariantes();
+      gerarEscalaMensal();
+      renderizarHistorico();
+    }
+
+    function openTab(tabName, evt) {
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(tabName).classList.add('active');
+      if (evt) evt.currentTarget.classList.add('active');
+
+      if (tabName !== 'escala') {
+        const alertaEl = document.getElementById('alerta-destaque-alteracoes');
+        if (alertaEl) alertaEl.style.display = 'none';
+        alteracoesParaDestaque = [];
+      }
+    }
+
+    function formatarDataBR(dataIso) {
+      if (!dataIso) return '-';
+      const partes = dataIso.split('-');
+      if (partes.length !== 3) return '-';
+      return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    }
+
+    function obterUltimaFeriasGozadaValida(colab) {
+      if (!colab.ultimaFerias) return '-';
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      const dtUlt = new Date(colab.ultimaFerias + 'T00:00:00');
+      if (dtUlt < hoje) {
+        return formatarDataBR(colab.ultimaFerias);
+      }
+      return '-';
+    }
+
+    function calcularCicloFerias(colab, anoConsultaParam) {
+      if (!colab.admissao) return null;
+      const adm = new Date(colab.admissao + 'T00:00:00');
+      const diaAdm = adm.getDate();
+      const mesAdm = adm.getMonth();
+      const anoAdm = adm.getFullYear();
+      const anoFiltro = anoConsultaParam ? parseInt(anoConsultaParam) : new Date().getFullYear();
+
+      if (anoAdm >= anoFiltro) return null;
+
+      const dataVencimento = new Date(anoFiltro, mesAdm, diaAdm);
+      const dataUrgente = new Date(dataVencimento);
+      dataUrgente.setMonth(dataUrgente.getMonth() + 9);
+
+      const inicioAquisitivoAno = anoFiltro - 1;
+      const textoPeriodo = `${String(diaAdm).padStart(2, '0')}/${String(mesAdm + 1).padStart(2, '0')}/${inicioAquisitivoAno} a ${String(diaAdm).padStart(2, '0')}/${String(mesAdm + 1).padStart(2, '0')}/${anoFiltro}`;
+
+      return {
+        vencimento: dataVencimento,
+        urgente: dataUrgente,
+        periodoTexto: textoPeriodo
+      };
+    }
+
+    function renderizarColaboradores() {
+      const tbody = document.getElementById('tbl-colaboradores');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      document.getElementById('total-colab').innerText = colaboradores.length;
+
+      colaboradores.forEach((colab, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${colab.matricula || '-'}</td>
+          <td><strong>${colab.nome}</strong></td>
+          <td>${formatarDataBR(colab.admissao)}</td>
+          <td>${colab.posto}</td>
+          <td><span class="badge bg-ok">${colab.turno || 'Comercial'}</span></td>
+          <td><small>${colab.horario || '-'}</small></td>
+          <td>${formatarDataBR(colab.nascimento)}</td>
+          <td>${obterUltimaFeriasGozadaValida(colab)}</td>
+          <td>
+            <button class="btn btn-edit" onclick="abrirModalEditar(${index})">Editar</button>
+            <button class="btn btn-danger" onclick="excluirColaborador(${index})">Excluir</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function adicionarColaborador(e) {
+      e.preventDefault();
+      const turnoSel = document.getElementById('turno').value;
+      const novo = {
+        matricula: document.getElementById('mat').value || '-',
+        nome: document.getElementById('nome').value,
+        admissao: document.getElementById('admissao').value,
+        posto: document.getElementById('posto').value,
+        turno: turnoSel,
+        horario: document.getElementById('horario').value || horáriosPadraoTurnos[turnoSel] || '',
+        nascimento: document.getElementById('nascimento').value,
+        ultimaFerias: '',
+        anoRefUltima: null,
+        feriasPorAno: {}
+      };
+      colaboradores.push(novo);
+      salvarNoStorage();
+      document.getElementById('form-colaborador').reset();
+      atualizarHorarioPadraoForm();
+      renderizarTudo();
+      carregarCombosColaboradores12x36();
+    }
+
+    function excluirColaborador(index) {
+      if (confirm(`Tem certeza que deseja excluir ${colaboradores[index].nome}?`)) {
+        colaboradores.splice(index, 1);
+        salvarNoStorage();
+        renderizarTudo();
+        carregarCombosColaboradores12x36();
+      }
+    }
+
+    function abrirModalEditar(index) {
+      const c = colaboradores[index];
+      document.getElementById('edit-index').value = index;
+      document.getElementById('edit-mat').value = c.matricula;
+      document.getElementById('edit-nome').value = c.nome;
+      document.getElementById('edit-admissao').value = c.admissao;
+      document.getElementById('edit-posto').value = c.posto;
+      document.getElementById('edit-turno').value = c.turno || 'Comercial';
+      document.getElementById('edit-horario').value = c.horario || horáriosPadraoTurnos[c.turno] || '';
+      document.getElementById('edit-nascimento').value = c.nascimento;
+      document.getElementById('edit-ultima-ferias').value = c.ultimaFerias || '';
+      document.getElementById('edit-ano-ref-ultima').value = c.anoRefUltima || '';
+      document.getElementById('modal-editar').style.display = 'flex';
+    }
+
+    function fecharModal() {
+      document.getElementById('modal-editar').style.display = 'none';
+    }
+
+    function salvarEdicao() {
+      const idx = document.getElementById('edit-index').value;
+      const ultimaFeriasVal = document.getElementById('edit-ultima-ferias').value;
+
+      if (ultimaFeriasVal) {
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        const dtUlt = new Date(ultimaFeriasVal + 'T00:00:00');
+
+        if (dtUlt >= hoje) {
+          alert("⚠️ A data da Última Férias Gozada precisa ser obrigatoriamente anterior ao dia de hoje!");
+          return;
+        }
+      }
+
+      colaboradores[idx].matricula = document.getElementById('edit-mat').value;
+      colaboradores[idx].nome = document.getElementById('edit-nome').value;
+      colaboradores[idx].admissao = document.getElementById('edit-admissao').value;
+      colaboradores[idx].posto = document.getElementById('edit-posto').value;
+      colaboradores[idx].turno = document.getElementById('edit-turno').value;
+      colaboradores[idx].horario = document.getElementById('edit-horario').value;
+      colaboradores[idx].nascimento = document.getElementById('edit-nascimento').value;
+      colaboradores[idx].ultimaFerias = ultimaFeriasVal;
+      
+      const anoVal = document.getElementById('edit-ano-ref-ultima').value;
+      colaboradores[idx].anoRefUltima = anoVal ? parseInt(anoVal) : null;
+
+      salvarNoStorage();
+      fecharModal();
+      renderizarTudo();
+      carregarCombosColaboradores12x36();
+    }
+
+    function autoCalcularDatasFerias(index) {
+      const anoConsulta = document.getElementById('ferias-ano').value;
+      const colab = colaboradores[index];
+      const ciclo = calcularCicloFerias(colab, anoConsulta);
+
+      const iniInput = document.getElementById(`ini-${index}`);
+      const fimInput = document.getElementById(`fim-${index}`);
+      const retInput = document.getElementById(`ret-${index}`);
+
+      if (!iniInput || !iniInput.value) {
+        if (fimInput) fimInput.value = '';
+        if (retInput) retInput.value = '';
+        return;
+      }
+
+      const dataInicio = new Date(iniInput.value + 'T00:00:00');
+
+      if (ciclo && ciclo.vencimento) {
+        const dataVenc = new Date(ciclo.vencimento);
+        dataVenc.setHours(0, 0, 0, 0);
+
+        if (dataInicio < dataVenc) {
+          alert(`⚠️ Não é permitido programar férias antes da data de Vencimento Direto (${formatarDataBR(ciclo.vencimento.toISOString().split('T')[0])})!`);
+          const fSalvo = (colab.feriasPorAno && colab.feriasPorAno[anoConsulta]) ? colab.feriasPorAno[anoConsulta] : {};
+          iniInput.value = fSalvo.inicio || '';
+          if (fimInput) fimInput.value = fSalvo.fim || '';
+          if (retInput) retInput.value = fSalvo.retorno || '';
+          return;
+        }
+      }
+
+      const dataFim = new Date(dataInicio);
+      dataFim.setDate(dataFim.getDate() + 29);
+
+      const dataRetorno = new Date(dataFim);
+      dataRetorno.setDate(dataRetorno.getDate() + 1);
+
+      if (fimInput) fimInput.value = dataFim.toISOString().split('T')[0];
+      if (retInput) retInput.value = dataRetorno.toISOString().split('T')[0];
+    }
+
+    function renderizarFerias() {
+      const tbody = document.getElementById('tbl-ferias');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      const anoConsulta = document.getElementById('ferias-ano').value;
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+
+      const alertasRH = [];
+
+      colaboradores.forEach((colab) => {
+        if (colab.feriasPorAno) {
+          Object.values(colab.feriasPorAno).forEach(f => {
+            if (f.inicio && f.fim) {
+              const dtIni = new Date(f.inicio + 'T00:00:00');
+              const diffDias = Math.ceil((dtIni - hoje) / (1000 * 60 * 60 * 24));
+              if (diffDias <= 40 && diffDias >= 0) {
+                alertasRH.push({
+                  matricula: colab.matricula || '-',
+                  nome: colab.nome,
+                  inicio: formatarDataBR(f.inicio),
+                  fim: formatarDataBR(f.fim),
+                  diasFaltantes: diffDias
+                });
+              }
+            }
+          });
+        }
+      });
+
+      colaboradores.forEach((colab, index) => {
+        const ciclo = calcularCicloFerias(colab, anoConsulta);
+        let statusBadge = '<span class="badge bg-ok">Em Dia</span>';
+        let vencimentoTexto = '-';
+        let periodoTexto = '-';
+
+        const feriasDoAno = (colab.feriasPorAno && colab.feriasPorAno[anoConsulta]) ? colab.feriasPorAno[anoConsulta] : {};
+        const inicioFerias = feriasDoAno.inicio || '';
+        const fimFerias = feriasDoAno.fim || '';
+        const retornoFerias = feriasDoAno.retorno || '';
+
+        if (ciclo) {
+          vencimentoTexto = formatarDataBR(ciclo.vencimento.toISOString().split('T')[0]);
+          periodoTexto = ciclo.periodoTexto;
+
+          if (inicioFerias && fimFerias) {
+            const iniF = new Date(inicioFerias + 'T00:00:00');
+            const fimF = new Date(fimFerias + 'T00:00:00');
+            const retF = retornoFerias ? new Date(retornoFerias + 'T00:00:00') : new Date(fimF.getTime() + 86400000);
+
+            if (hoje >= retF || hoje > fimF) {
+              statusBadge = '<span class="badge bg-ok">Férias Já Gozadas</span>';
+            } else if (hoje >= iniF && hoje <= fimF) {
+              statusBadge = '<span class="badge bg-info">Em Férias</span>';
+            } else {
+              statusBadge = '<span class="badge bg-atencao">Programado</span>';
+            }
+          } else if (hoje >= ciclo.urgente) {
+            statusBadge = '<span class="badge bg-atencao">Urgente</span>';
+          } else if (hoje > ciclo.vencimento) {
+            statusBadge = '<span class="badge bg-critico">Vencido</span>';
+          }
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${colab.matricula || '-'}</td>
+          <td><strong>${colab.nome}</strong></td>
+          <td><small>${periodoTexto}</small></td>
+          <td><strong>${vencimentoTexto}</strong></td>
+          <td><input type="date" id="ini-${index}" value="${inicioFerias}" onchange="autoCalcularDatasFerias(${index})"></td>
+          <td><input type="date" id="fim-${index}" value="${fimFerias}"></td>
+          <td><input type="date" id="ret-${index}" value="${retornoFerias}"></td>
+          <td>${statusBadge}</td>
+          <td>
+            <button class="btn btn-save" onclick="salvarFerias(${index})">Salvar</button>
+            <button class="btn btn-edit" onclick="abrirModalEditar(${index})">Editar</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      renderizarAlertasRH(alertasRH);
+      renderizarResumoFeriasPorMes();
+    }
+
+    function renderizarAlertasRH(alertas) {
+      const painel = document.getElementById('painel-alertas-rh');
+      const lista = document.getElementById('lista-alertas-rh');
+      if (!painel || !lista) return;
+
+      if (alertas.length === 0) {
+        painel.style.display = 'none';
+        lista.innerHTML = '';
+        return;
+      }
+
+      painel.style.display = 'block';
+      lista.innerHTML = '';
+
+      alertas.forEach((item, idIndex) => {
+        const textoEnvio = `Aviso de Férias RH - Matrícula: ${item.matricula} | Colaborador: ${item.nome} | Período: ${item.inicio} a ${item.fim}`;
+        
+        lista.innerHTML += `
+          <div class="alert-rh-card" id="card-alert-rh-${idIndex}">
+            <div>
+              <strong style="color: #007bff;">📋 Matrícula: ${item.matricula}</strong> - 
+              <strong style="font-size: 14px;">${item.nome}</strong><br>
+              <small>🗓️ Férias Programadas: <strong>${item.inicio}</strong> até <strong>${item.fim}</strong> 
+              (${item.diasFaltantes === 0 ? 'Inicia Hoje!' : 'Faltam ' + item.diasFaltantes + ' dias'})</small>
+            </div>
+            <button class="btn btn-save" onclick="copiarTextoRH('${textoEnvio}', 'card-alert-rh-${idIndex}')">📋 Copiar Mensagem para o RH</button>
+          </div>
+        `;
+      });
+    }
+
+    function copiarTextoRH(texto, cardId) {
+      navigator.clipboard.writeText(texto).then(() => {
+        const cardEl = document.getElementById(cardId);
+        if (cardEl) cardEl.remove();
+
+        const lista = document.getElementById('lista-alertas-rh');
+        const painel = document.getElementById('painel-alertas-rh');
+        if (lista && lista.children.length === 0 && painel) {
+          painel.style.display = 'none';
+        }
+
+        alert('Mensagem copiada com sucesso!');
+      }).catch(() => {
+        alert(texto);
+      });
+    }
+
+    function renderizarResumoFeriasPorMes() {
+      const grid = document.getElementById('grid-resumo-ferias-meses');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      const anoSelecionado = parseInt(document.getElementById('ferias-ano').value);
+      const feriasPorMes = Array.from({ length: 12 }, () => []);
+
+      colaboradores.forEach(colab => {
+        if (colab.feriasPorAno) {
+          Object.values(colab.feriasPorAno).forEach(f => {
+            if (f.inicio) {
+              const dtIni = new Date(f.inicio + 'T00:00:00');
+              const anoInicioReal = dtIni.getFullYear();
+              const mesInicioReal = dtIni.getMonth();
+
+              if (anoInicioReal === anoSelecionado) {
+                const info = `${colab.nome} (${formatarDataBR(f.inicio)} a ${formatarDataBR(f.fim)})`;
+                if (!feriasPorMes[mesInicioReal].includes(info)) {
+                  feriasPorMes[mesInicioReal].push(info);
+                }
+              }
+            }
+          });
+        }
+      });
+
+      nomesMeses.forEach((nomeMes, index) => {
+        const lista = feriasPorMes[index];
+        let conteudoLista = '<span style="color:#888; font-size:11px;">Ninguém programado</span>';
+
+        if (lista.length > 0) {
+          conteudoLista = '<ul>' + lista.map(item => `<li><strong>${item}</strong></li>`).join('') + '</ul>';
+        }
+
+        grid.innerHTML += `
+          <div class="card-mes-ferias">
+            <h4>📅 ${nomeMes}</h4>
+            ${conteudoLista}
+          </div>
+        `;
+      });
+    }
+
+    function salvarFerias(index) {
+      const anoConsulta = document.getElementById('ferias-ano').value;
+      const colab = colaboradores[index];
+      const ciclo = calcularCicloFerias(colab, anoConsulta);
+
+      const ini = document.getElementById(`ini-${index}`).value;
+      const fim = document.getElementById(`fim-${index}`).value;
+      const ret = document.getElementById(`ret-${index}`).value;
+
+      if (ini && ciclo && ciclo.vencimento) {
+        const dataInicio = new Date(ini + 'T00:00:00');
+        const dataVenc = new Date(ciclo.vencimento);
+        dataVenc.setHours(0, 0, 0, 0);
+
+        if (dataInicio < dataVenc) {
+          alert(`⚠️ Não é permitido salvar férias agendadas antes da data de Vencimento Direto (${formatarDataBR(ciclo.vencimento.toISOString().split('T')[0])})!`);
+          return;
+        }
+      }
+
+      if (!colaboradores[index].feriasPorAno) {
+        colaboradores[index].feriasPorAno = {};
+      }
+
+      colaboradores[index].feriasPorAno[anoConsulta] = {
+        inicio: ini,
+        fim: fim,
+        retorno: ret
+      };
+
+      if (ini) {
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        const dataInicio = new Date(ini + 'T00:00:00');
+
+        if (dataInicio < hoje) {
+          colaboradores[index].ultimaFerias = ini;
+          colaboradores[index].anoRefUltima = dataInicio.getFullYear();
+        }
+      }
+
+      salvarNoStorage();
+      alert(`Férias para o ano ${anoConsulta} atualizadas para ${colaboradores[index].nome}!`);
+      renderizarTudo();
+    }
+
+    // ================= LÓGICA DA ESCALA MENSAL =================
+    
+    function carregarCombosColaboradores12x36() {
+      const select1 = document.getElementById('sel-colab-1');
+      const select2 = document.getElementById('sel-colab-2');
+      if (!select1 || !select2) return;
+
+      select1.innerHTML = '';
+      select2.innerHTML = '<option value="">-- Nenhum (Apenas o 1º) --</option>';
+
+      colaboradores.forEach(c => {
+        const optText = `${c.nome} (${c.turno || 'Comercial'})`;
+        const isAntonio = c.matricula === '94130';
+        const isDaniel = c.matricula === '92148';
+
+        select1.innerHTML += `<option value="${c.matricula}" ${isAntonio ? 'selected' : ''}>${optText}</option>`;
+        select2.innerHTML += `<option value="${c.matricula}" ${isDaniel ? 'selected' : ''}>${optText}</option>`;
+      });
+    }
+
+    function aplicarPadrao12x36() {
+      const mat1 = document.getElementById('sel-colab-1').value;
+      const status1 = document.getElementById('status-colab-1').value;
+      const mat2 = document.getElementById('sel-colab-2').value;
+      const dtInicioStr = document.getElementById('dt-inicio-12x36').value;
+
+      if (!mat1) {
+        alert("⚠️ Por favor, selecione ao menos o 1º Colaborador!");
+        return;
+      }
+      if (!dtInicioStr) {
+        alert("⚠️ Por favor, selecione a Data de Início do ciclo!");
+        return;
+      }
+
+      const mes = parseInt(document.getElementById('escala-mes').value);
+      const ano = parseInt(document.getElementById('escala-ano').value);
+      const totalDias = new Date(ano, mes + 1, 0).getDate();
+      const chaveEscala = `${ano}-${mes}`;
+      const dtInicio = new Date(dtInicioStr + 'T00:00:00');
+
+      for (let d = 1; d <= totalDias; d++) {
+        const dtAtual = new Date(ano, mes, d);
+        dtAtual.setHours(0, 0, 0, 0);
+
+        const diffTempo = dtAtual.getTime() - dtInicio.getTime();
+        const diffDias = Math.floor(diffTempo / (1000 * 3600 * 24));
+        const resto = Math.abs(diffDias) % 2;
+
+        let val1 = 'T';
+        let val2 = 'FG';
+
+        if (status1 === 'T') {
+          val1 = (resto === 0) ? 'T' : 'FG';
+          val2 = (resto === 0) ? 'FG' : 'T';
+        } else {
+          val1 = (resto === 0) ? 'FG' : 'T';
+          val2 = (resto === 0) ? 'T' : 'FG';
+        }
+
+        escalasSalvas[`${chaveEscala}_${mat1}_${d}`] = val1;
+
+        if (mat2 && mat2 !== mat1) {
+          escalasSalvas[`${chaveEscala}_${mat2}_${d}`] = val2;
+        }
+      }
+
+      salvarNoStorage();
+      gerarEscalaMensal();
+      alert("Escala alternada gerada e aplicada com sucesso!");
+    }
+
+    const diasSemanaSiglas = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+    function gerarEscalaMensal() {
+      const mes = parseInt(document.getElementById('escala-mes').value);
+      const ano = parseInt(document.getElementById('escala-ano').value);
+      const totalDias = new Date(ano, mes + 1, 0).getDate();
+      const chaveEscala = `${ano}-${mes}`;
+
+      const thead = document.getElementById('thead-escala');
+      const tbody = document.getElementById('tbody-escala');
+      if (!thead || !tbody) return;
+
+      let trDias = `<tr><th class="fixed-col">Matrícula</th><th class="fixed-col" style="left:75px;">Nome</th>`;
+      let trSemana = `<tr><th class="fixed-col">--</th><th class="fixed-col" style="left:75px;">--</th>`;
+
+      for (let d = 1; d <= totalDias; d++) {
+        const dataObj = new Date(ano, mes, d);
+        const diaSemana = diasSemanaSiglas[dataObj.getDay()];
+        const isFimSemana = dataObj.getDay() === 0 || dataObj.getDay() === 6;
+        const bgStyle = isFimSemana ? 'style="background-color:#495057;"' : '';
+        
+        trDias += `<th ${bgStyle}>${String(d).padStart(2, '0')}</th>`;
+        trSemana += `<th ${bgStyle}>${diaSemana}</th>`;
+      }
+      trDias += `</tr>`;
+      trSemana += `</tr>`;
+      thead.innerHTML = trDias + trSemana;
+
+      const turnos = ['Comercial', '1º Turno', '2º Turno', '3º Turno', '12x36', 'Malote'];
+      tbody.innerHTML = '';
+
+      turnos.forEach(turnoNome => {
+        const listaTurno = colaboradores.filter(c => (c.turno || 'Comercial') === turnoNome);
+        
+        if (listaTurno.length > 0) {
+          const horariosUnicos = [...new Set(listaTurno.map(c => c.horario || horáriosPadraoTurnos[turnoNome]))];
+
+          horariosUnicos.forEach(horarioStr => {
+            const colabsDoGrupo = listaTurno.filter(c => (c.horario || horáriosPadraoTurnos[turnoNome]) === horarioStr);
+
+            if (colabsDoGrupo.length > 0) {
+              const textoHorario = horarioStr ? ` (${horarioStr})` : '';
+
+              const trHeader = document.createElement('tr');
+              trHeader.className = 'tr-header-turno';
+              trHeader.innerHTML = `<td colspan="${totalDias + 2}">📌 <strong>${turnoNome}</strong><small>${textoHorario}</small></td>`;
+              tbody.appendChild(trHeader);
+
+              colabsDoGrupo.forEach((colab) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td class="fixed-col">${colab.matricula}</td><td class="fixed-col" style="left:75px;"><strong>${colab.nome}</strong></td>`;
+
+                for (let d = 1; d <= totalDias; d++) {
+                  const dataObj = new Date(ano, mes, d);
+                  dataObj.setHours(0, 0, 0, 0);
+
+                  const diaSem = dataObj.getDay();
+                  const mmDd = `${String(mes + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                  const isFeriado = feriadosNacionais.includes(mmDd);
+
+                  let valorDia = 'T';
+
+                  // Checa férias cadastradas
+                  if (colab.feriasPorAno) {
+                    Object.values(colab.feriasPorAno).forEach(f => {
+                      if (f.inicio && f.fim) {
+                        const iniF = new Date(f.inicio + 'T00:00:00');
+                        const fimF = new Date(f.fim + 'T00:00:00');
+                        if (dataObj >= iniF && dataObj <= fimF) {
+                          valorDia = 'FE';
+                        }
+                      }
+                    });
+                  }
+
+                  if (valorDia !== 'FE') {
+                    // Prioridade TOTAL para o valor manual salvo do usuário
+                    const valorSalvo = escalasSalvas[`${chaveEscala}_${colab.matricula}_${d}`];
+
+                    if (valorSalvo) {
+                      valorDia = valorSalvo;
+                    } else {
+                      // Se não tiver valor salvo, aplica o padrão automático
+                      if (isFeriado && turnoNome !== '12x36' && turnoNome !== 'Malote') {
+                        valorDia = 'FF';
+                      } else if (diaSem === 0 && turnoNome !== '12x36' && turnoNome !== 'Malote') { 
+                        valorDia = 'DSR';
+                      } else if (turnoNome === '3º Turno') {
+                        if (diaSem === 1) valorDia = 'FG';
+                      } else if (turnoNome !== '12x36' && turnoNome !== 'Malote') {
+                        if (diaSem === 6) valorDia = 'FG';
+                      }
+                    }
+                  }
+
+                  let cellClass = 'drag-cell ';
+                  if (valorDia === 'DSR') cellClass += 'cell-dsr';
+                  else if (valorDia === 'FG') cellClass += 'cell-fg';
+                  else if (valorDia === 'FF') cellClass += 'cell-ff';
+                  else if (valorDia === 'FE') cellClass += 'cell-fe';
+                  else if (valorDia === 'TR') cellClass += 'cell-tr';
+                  else if (valorDia === 'T') cellClass += 'cell-t';
+
+                  const chaveCelula = `${colab.matricula}_${d}`;
+                  if (alteracoesParaDestaque.includes(chaveCelula)) {
+                    cellClass += ' cell-alterada';
+                  }
+
+                  tr.innerHTML += `
+                    <td class="${cellClass}" 
+                        data-colab="${colab.matricula}" 
+                        data-dia="${d}"
+                        onmousedown="iniciarArrastoMouse(event, this)"
+                        onmouseenter="hoverArrastoMouse(this)"
+                        ondblclick="habilitarSelecaoManual(this)">
+                      <select class="select-escala" data-colab="${colab.matricula}" data-dia="${d}">
+                        <option value="T" ${valorDia === 'T' ? 'selected' : ''}>T</option>
+                        <option value="FG" ${valorDia === 'FG' ? 'selected' : ''}>FG</option>
+                        <option value="DSR" ${valorDia === 'DSR' ? 'selected' : ''}>DSR</option>
+                        <option value="FF" ${valorDia === 'FF' ? 'selected' : ''}>FF</option>
+                        <option value="FE" ${valorDia === 'FE' ? 'selected' : ''}>FE</option>
+                        <option value="TR" ${valorDia === 'TR' ? 'selected' : ''}>TR</option>
+                        <option value="LM" ${valorDia === 'LM' ? 'selected' : ''}>LM</option>
+                      </select>
+                    </td>
+                  `;
+                }
+                tbody.appendChild(tr);
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // CONTROLE DE MOUSE (CLICK & DRAG)
+    function iniciarArrastoMouse(e, tdEl) {
+      if (e.button !== 0) return;
+      estaArrastando = true;
+      tdOrigemArrasto = tdEl;
+      tdEl.classList.add('arrastando');
+    }
+
+    function hoverArrastoMouse(tdEl) {
+      if (!estaArrastando || !tdOrigemArrasto) return;
+      document.querySelectorAll('.drag-cell').forEach(td => td.classList.remove('destaque-hover'));
+
+      if (tdEl.getAttribute('data-colab') === tdOrigemArrasto.getAttribute('data-colab')) {
+        tdEl.classList.add('destaque-hover');
+      }
+    }
+
+    function finalizarArrastoGlobal(e) {
+      if (!estaArrastando || !tdOrigemArrasto) return;
+
+      const tdDestino = e.target.closest('.drag-cell');
+
+      if (tdDestino && tdDestino !== tdOrigemArrasto) {
+        const colabOrigem = tdOrigemArrasto.getAttribute('data-colab');
+        const colabDestino = tdDestino.getAttribute('data-colab');
+
+        if (colabOrigem === colabDestino) {
+          const selectOrigem = tdOrigemArrasto.querySelector('select');
+          const selectDestino = tdDestino.querySelector('select');
+
+          if (selectOrigem && selectDestino) {
+            const valTemp = selectOrigem.value;
+            selectOrigem.value = selectDestino.value;
+            selectDestino.value = valTemp;
+
+            const diaOrigem = tdOrigemArrasto.getAttribute('data-dia');
+            const diaDestino = tdDestino.getAttribute('data-dia');
+            const mes = document.getElementById('escala-mes').value;
+            const ano = document.getElementById('escala-ano').value;
+            const chaveEscala = `${ano}-${mes}`;
+
+            // Salva as alterações feitas via arrasto de mouse na memória
+            escalasSalvas[`${chaveEscala}_${colabOrigem}_${diaOrigem}`] = selectOrigem.value;
+            escalasSalvas[`${chaveEscala}_${colabOrigem}_${diaDestino}`] = selectDestino.value;
+            salvarNoStorage();
+
+            atualizarEstiloSelect(selectOrigem);
+            atualizarEstiloSelect(selectDestino);
+          }
+        } else {
+          alert("⚠️ A troca só é permitida entre os dias do mesmo colaborador!");
+        }
+      }
+
+      if (tdOrigemArrasto) tdOrigemArrasto.classList.remove('arrastando');
+      document.querySelectorAll('.drag-cell').forEach(td => td.classList.remove('destaque-hover'));
+      estaArrastando = false;
+      tdOrigemArrasto = null;
+    }
+
+    function habilitarSelecaoManual(tdEl) {
+      const selectObj = tdEl.querySelector('select');
+      if (selectObj) {
+        selectObj.style.pointerEvents = 'auto';
+        selectObj.focus();
+
+        selectObj.onchange = function() {
+          const mat = selectObj.getAttribute('data-colab');
+          const dia = selectObj.getAttribute('data-dia');
+          const mes = document.getElementById('escala-mes').value;
+          const ano = document.getElementById('escala-ano').value;
+          const chaveEscala = `${ano}-${mes}`;
+
+          // Grava a alteração manual no clique do select diretamente no objeto de memória
+          escalasSalvas[`${chaveEscala}_${mat}_${dia}`] = selectObj.value;
+          salvarNoStorage();
+
+          selectObj.style.pointerEvents = 'none';
+          atualizarEstiloSelect(selectObj);
+        };
+
+        selectObj.onblur = function() {
+          selectObj.style.pointerEvents = 'none';
+          atualizarEstiloSelect(selectObj);
+        };
+      }
+    }
+
+    function atualizarEstiloSelect(selectEl) {
+      const val = selectEl.value;
+      const td = selectEl.parentElement;
+      td.className = 'drag-cell ';
+      if (val === 'DSR') td.classList.add('cell-dsr');
+      else if (val === 'FG') td.classList.add('cell-fg');
+      else if (val === 'FF') td.classList.add('cell-ff');
+      else if (val === 'FE') td.classList.add('cell-fe');
+      else if (val === 'TR') td.classList.add('cell-tr');
+      else if (val === 'T') td.classList.add('cell-t');
+    }
+
+    function salvarEscalaManual() {
+      const mes = parseInt(document.getElementById('escala-mes').value);
+      const ano = parseInt(document.getElementById('escala-ano').value);
+      const chaveEscala = `${ano}-${mes}`;
+
+      const novosValoresCapturados = {};
+      const listaAlteracoesDetalhadas = [];
+      const chavesAlteradas = [];
+
+      document.querySelectorAll('.select-escala').forEach(select => {
+        const mat = select.getAttribute('data-colab');
+        const dia = select.getAttribute('data-dia');
+        const valorNovo = select.value;
+        novosValoresCapturados[`${chaveEscala}_${mat}_${dia}`] = valorNovo;
+
+        const valorAntigo = escalasSalvas[`${chaveEscala}_${mat}_${dia}`];
+        if (valorAntigo && valorAntigo !== valorNovo) {
+          const colabObj = colaboradores.find(c => c.matricula === mat);
+          const nomeColab = colabObj ? colabObj.nome : `Matrícula ${mat}`;
+          listaAlteracoesDetalhadas.push(`• <strong>${nomeColab}</strong> no Dia ${dia}: de <span style="text-decoration:line-through;">${valorAntigo}</span> para <strong>${valorNovo}</strong>`);
+          chavesAlteradas.push(`${mat}_${dia}`);
+        }
+      });
+
+      Object.assign(escalasSalvas, novosValoresCapturados);
+
+      const agora = new Date();
+      const dataHoraFormatada = `${agora.toLocaleDateString('pt-BR')} às ${agora.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}`;
+      
+      let resumoTexto = '';
+      if (historicoEscalas.filter(h => h.mesIndex === mes && h.anoVal === ano).length === 0) {
+        resumoTexto = '<em>Primeira versão da escala salva para este mês.</em>';
+      } else if (listaAlteracoesDetalhadas.length === 0) {
+        resumoTexto = '<em>Nenhuma alteração detectada em relação ao último salvamento.</em>';
+      } else {
+        resumoTexto = `<div style="text-align:left; font-size:11px;">${listaAlteracoesDetalhadas.join('<br>')}</div>`;
+      }
+
+      const novoRegistro = {
+        id: Date.now(),
+        dataHora: dataHoraFormatada,
+        mesAno: `${nomesMeses[mes]} / ${ano}`,
+        mesIndex: mes,
+        anoVal: ano,
+        resumoAlteracoes: resumoTexto,
+        chavesAlteradas: chavesAlteradas
+      };
+
+      historicoEscalas.unshift(novoRegistro);
+
+      salvarNoStorage();
+      renderizarHistorico();
+      alert(`Escala de ${nomesMeses[mes]}/${ano} salva com sucesso no histórico!`);
+    }
+
+    function renderizarHistorico() {
+      const tbody = document.getElementById('tbl-historico-escala');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      if (historicoEscalas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="color: #777;">Nenhum histórico registrado até o momento.</td></tr>';
+        return;
+      }
+
+      historicoEscalas.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${item.dataHora}</strong></td>
+          <td>${item.mesAno}</td>
+          <td>${item.resumoAlteracoes}</td>
+          <td>
+            <button class="btn btn-save" onclick="carregarEscalaComDestaque(${index})">🔍 Ver Escala com Alterações</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function carregarEscalaComDestaque(indexHistorico) {
+      const registro = historicoEscalas[indexHistorico];
+      document.getElementById('escala-mes').value = registro.mesIndex;
+      document.getElementById('escala-ano').value = registro.anoVal;
+
+      alteracoesParaDestaque = registro.chavesAlteradas || [];
+
+      const alertaEl = document.getElementById('alerta-destaque-alteracoes');
+      if (alteracoesParaDestaque.length > 0) {
+        if (alertaEl) alertaEl.style.display = 'block';
+      } else {
+        if (alertaEl) alertaEl.style.display = 'none';
+      }
+
+      openTab('escala');
+      gerarEscalaMensal();
+    }
+
+    function limparHistoricoEscalas() {
+      if (confirm("Tem certeza que deseja apagar todo o histórico de salvamento?")) {
+        historicoEscalas = [];
+        salvarNoStorage();
+        renderizarHistorico();
+      }
+    }
+
+    function renderizarAniversariantes() {
+      const grid = document.getElementById('grid-aniversariantes');
+      const select = document.getElementById('select-mes');
+      if (!grid || !select) return;
+
+      const mesSelecionado = parseInt(select.value);
+      grid.innerHTML = '';
+
+      const filtrados = colaboradores.filter(colab => {
+        if (!colab.nascimento) return false;
+        const mesNasc = new Date(colab.nascimento + 'T00:00:00').getMonth();
+        return mesNasc === mesSelecionado;
+      });
+
+      if (filtrados.length === 0) {
+        grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #777;">Nenhum aniversariante neste mês.</p>';
+        return;
+      }
+
+      filtrados.forEach(colab => {
+        const dia = colab.nascimento.split('-')[2];
+        grid.innerHTML += `
+          <div class="card">
+            <h3>🎉 Dia ${dia}</h3>
+            <p><strong>Nome:</strong> ${colab.nome}</p>
+            <p><strong>Turno:</strong> ${colab.turno || 'Comercial'} (${colab.horario || '-'})</p>
+            <p><strong>Matrícula:</strong> ${colab.matricula}</p>
+          </div>
+        `;
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', iniciarSistema);
+  </script>
+
+<script src="../auth-guard.js"></script>
+
+<button id="exportarMigracao" style="position:fixed;right:16px;bottom:16px;z-index:99999;background:#0b6b62;color:#fff;border:0;border-radius:9px;padding:12px 14px;font:600 14px system-ui;box-shadow:0 3px 12px #0003;cursor:pointer">Baixar cópia dos dados locais</button>
+<script>document.getElementById('exportarMigracao').onclick=()=>{const keys=['colaboradores_v120','escalas_v120','historico_escalas_v120','estoque_analise_data','estoque_analise_date'];const dados={origem:location.pathname,exportadoEm:new Date().toISOString(),dados:{}};keys.forEach(k=>{const v=localStorage.getItem(k);if(v!==null)dados.dados[k]=JSON.parse(v)});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(dados,null,2)],{type:'application/json'}));a.download='migracao-dados-pce.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);alert('Cópia baixada. Guarde esse arquivo para importar no portal.');};</script>
+</body>
+</html>

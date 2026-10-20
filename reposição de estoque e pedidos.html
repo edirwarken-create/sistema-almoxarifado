@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise de Reposição e Gestão de Pedidos</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f4f6f9; padding: 20px; color: #333; }
+        h1 { margin-bottom: 20px; font-size: 24px; color: #1e293b; }
+        
+        .upload-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .upload-card { background: #fff; padding: 15px; border-radius: 8px; border: 1px dashed #cbd5e1; text-align: center; }
+        .upload-card label { display: block; font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 8px; }
+        .upload-card input[type="file"] { display: none; }
+        .btn-file { display: inline-block; padding: 6px 12px; background: #e2e8f0; border-radius: 4px; font-size: 13px; cursor: pointer; color: #334155; }
+        .file-name { font-size: 11px; color: #94a3b8; margin-top: 5px; word-break: break-all; }
+        
+        .btn-primary { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-bottom: 20px; }
+        .btn-primary:hover { background: #1d4ed8; }
+
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { padding: 10px 20px; border: none; border-radius: 6px; background: #e2e8f0; font-weight: bold; color: #475569; cursor: pointer; }
+        .tab-btn.active { background: #2563eb; color: white; }
+
+        .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .filter-group label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #475569; }
+        .filter-group select, .filter-group input { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-size: 12px; }
+
+        /* Estilos dos Cards de Resumo */
+        .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .summary-card { background: #fff; padding: 12px 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #cbd5e1; }
+        .summary-card.primary { border-left-color: #2563eb; }
+        .summary-card.info { border-left-color: #0284c7; }
+        .summary-card.danger { border-left-color: #ef4444; }
+        .summary-card.warning { border-left-color: #f59e0b; }
+        .summary-card label { display: block; font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; text-transform: uppercase; }
+        .summary-card .value { font-size: 20px; font-weight: bold; color: #0f172a; }
+
+        .table-container { background: #fff; border-radius: 8px; overflow-x: auto; max-height: 70vh; overflow-y: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+        
+        /* Cabeçalho Fixo (Sticky Header) */
+        th { background: #0f172a; color: white; padding: 12px 10px; font-weight: 600; white-space: nowrap; position: sticky; top: 0; z-index: 10; }
+        td { padding: 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; white-space: nowrap; }
+        tr:hover { background: #f8fafc; }
+
+        .badge-atrasado { background: #ef4444; color: white; padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; display: inline-block; }
+        .badge-noprazo { background: #16a34a; color: white; padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; display: inline-block; }
+        .badge-normal { color: #16a34a; font-weight: bold; }
+        .badge-ruptura { background: #dc2626; color: white; padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .obs-column { max-width: 300px; font-size: 11px; color: #64748b; line-height: 1.3; white-space: normal; }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+    <h1>Análise de Reposição e Gestão de Pedidos</h1>
+
+    <div class="upload-container">
+        <div class="upload-card">
+            <label>1. ES2791 (Cadastro/Estoque)</label>
+            <label for="f1" class="btn-file">Escolher ficheiro</label>
+            <input type="file" id="f1" onchange="salvarArquivo(this, 'f1', 'n1')">
+            <div id="n1" class="file-name">Nenhum ficheiro selecionado</div>
+        </div>
+        <div class="upload-card">
+            <label>2. ES2611 (Consumo 4M)</label>
+            <label for="f2" class="btn-file">Escolher ficheiro</label>
+            <input type="file" id="f2" onchange="salvarArquivo(this, 'f2', 'n2')">
+            <div id="n2" class="file-name">Nenhum ficheiro selecionado</div>
+        </div>
+        <div class="upload-card">
+            <label>3. Pedidos de Compra</label>
+            <label for="f3" class="btn-file">Escolher ficheiro</label>
+            <input type="file" id="f3" accept=".csv, .txt" onchange="salvarArquivo(this, 'f3', 'n3')">
+            <div id="n3" class="file-name">Nenhum ficheiro selecionado</div>
+        </div>
+        <div class="upload-card">
+            <label>4. Tempo de Reposição (Lead Time)</label>
+            <label for="f4" class="btn-file">Escolher ficheiro</label>
+            <input type="file" id="f4" onchange="salvarArquivo(this, 'f4', 'n4')">
+            <div id="n4" class="file-name">Nenhum ficheiro selecionado</div>
+        </div>
+    </div>
+
+    <button class="btn-primary" onclick="analisarArquivos()">Analisar Arquivos Anexados</button>
+
+    <div class="tabs">
+        <button class="tab-btn active" id="btnTabReposicao" onclick="alternarAba('reposicao')">Reposição de Estoque</button>
+        <button class="tab-btn" id="btnTabPedidos" onclick="alternarAba('pedidos')">Pedidos em Aberto</button>
+    </div>
+
+    <!-- Aba 1: Reposição de Estoque -->
+    <div id="abaReposicao" class="tab-content active">
+        <div class="filters">
+            <div class="filter-group">
+                <label>Filtrar por Item (Código/Nome):</label>
+                <input type="text" id="filterRepoItem" placeholder="Digite o código ou nome..." oninput="aplicarFiltrosRepo()">
+            </div>
+            <div class="filter-group">
+                <label>Filtrar por Fornecedor:</label>
+                <select id="filterRepoFornecedor" onchange="aplicarFiltrosRepo()"><option value="">Todos os Fornecedores</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Filtrar por Pedido:</label>
+                <select id="filterRepoPedido" onchange="aplicarFiltrosRepo()"><option value="">Todos os Pedidos</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Status do Prazo:</label>
+                <select id="filterRepoStatusPrazo" onchange="aplicarFiltrosRepo()">
+                    <option value="">Todos</option>
+                    <option value="VENCIDO">Com Prazo Vencido</option>
+                    <option value="NO_PRAZO">No Prazo</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Ordenar Por:</label>
+                <select id="sortRepo" onchange="aplicarFiltrosRepo()">
+                    <option value="RUPTURA_ASC">Ruptura (Mais próximo -> Mais longo)</option>
+                    <option value="PRAZO_VENCIDO_DESC">Prazo Entrega (Mais vencido -> Recente)</option>
+                    <option value="CONSUMO_DESC">Consumo Médio (Maior -> Menor)</option>
+                    <option value="CONSUMO_ASC">Consumo Médio (Menor -> Maior)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Descrição</th>
+                        <th>Estoque Atual</th>
+                        <th>Estoque Mín.</th>
+                        <th>Estoque Máx.</th>
+                        <th>Consumo Médio (4M)</th>
+                        <th>Lead Time</th>
+                        <th>Pedido Aberto</th>
+                        <th>Saldo Pedido</th>
+                        <th>Fornecedor</th>
+                        <th>Prazo Entrega</th>
+                        <th>Previsão Ruptura</th>
+                        <th>Status Reposição</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBodyReposicao">
+                    <tr><td colspan="13" style="text-align:center; padding: 20px;">Nenhuma análise realizada ainda.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Aba 2: Pedidos em Aberto -->
+    <div id="abaPedidos" class="tab-content">
+        <!-- Cards de Resumo do Filtro -->
+        <div class="summary-cards">
+            <div class="summary-card primary">
+                <label>Total de Itens</label>
+                <div class="value" id="countTotalItens">0</div>
+            </div>
+            <div class="summary-card info">
+                <label>Pedidos Únicos</label>
+                <div class="value" id="countPedidosUnicos">0</div>
+            </div>
+            <div class="summary-card danger">
+                <label>Pedidos Atrasados</label>
+                <div class="value" id="countAtrasados">0</div>
+            </div>
+            <div class="summary-card warning">
+                <label>Atrasados Sem Obs.</label>
+                <div class="value" id="countAtrasadosSemObs">0</div>
+            </div>
+        </div>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label>Pedido:</label>
+                <select id="filterPedido" onchange="aplicarFiltros()"><option value="">Todos os Pedidos</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Fornecedor:</label>
+                <select id="filterFornecedor" onchange="aplicarFiltros()"><option value="">Todos os Fornecedores</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Observação (COCCA/COAVT):</label>
+                <select id="filterObs" onchange="aplicarFiltros()">
+                    <option value="">Todas as Observações (Com e Sem)</option>
+                    <option value="__COM_OBS__">Somente COM Observação</option>
+                    <option value="__SEM_OBS__">Somente SEM Observação</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Status do Prazo:</label>
+                <select id="filterStatus" onchange="aplicarFiltros()">
+                    <option value="">Todos</option>
+                    <option value="ATRASADO">Atrasado</option>
+                    <option value="NO PRAZO">No Prazo</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Pedido Compra</th>
+                        <th>Código</th>
+                        <th>Descrição</th>
+                        <th>Matrícula Forn.</th>
+                        <th>Nome Fornecedor</th>
+                        <th>Qt. Saldo Pedido</th>
+                        <th>Prazo Entrega</th>
+                        <th>Status Geral</th>
+                        <th>Observação (COCCA/COAVT)</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Conteúdo gerado dinamicamente -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const arquivosCarregados = {};
+        let dadosPedidos = [];
+        let dadosReposicao = [];
+
+        function alternarAba(aba) {
+            const btnReposicao = document.getElementById('btnTabReposicao');
+            const btnPedidos = document.getElementById('btnTabPedidos');
+            const abaReposicao = document.getElementById('abaReposicao');
+            const abaPedidos = document.getElementById('abaPedidos');
+
+            if (aba === 'reposicao') {
+                btnReposicao.classList.add('active');
+                btnPedidos.classList.remove('active');
+                abaReposicao.classList.add('active');
+                abaPedidos.classList.remove('active');
+            } else {
+                btnPedidos.classList.add('active');
+                btnReposicao.classList.remove('active');
+                abaPedidos.classList.add('active');
+                abaReposicao.classList.remove('active');
+            }
+        }
+
+        function salvarArquivo(input, chave, targetId) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                arquivosCarregados[chave] = file;
+                document.getElementById(targetId).textContent = file.name;
+                document.getElementById(targetId).style.color = "#16a34a";
+            }
+        }
+
+        function lerArquivoTexto(file) {
+            return new Promise((resolve) => {
+                if (!file) resolve("");
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.readAsText(file, 'ISO-8859-1');
+            });
+        }
+
+        function limparTexto(val) {
+            if (!val) return "";
+            return val.toString().replace(/["']/g, '').trim();
+        }
+
+        function normalizarCodigo(cod) {
+            const limpo = limparTexto(cod);
+            if (!limpo) return "";
+            return /^\d+$/.test(limpo) ? parseInt(limpo, 10).toString() : limpo.toUpperCase();
+        }
+
+        function extrairNumero(valor) {
+            if (!valor) return 0;
+            const limpo = limparTexto(valor).replace(/\./g, '').replace(',', '.');
+            const num = parseFloat(limpo);
+            return isNaN(num) ? 0 : num;
+        }
+
+        function quebrarLinhaInteligente(linha) {
+            if (linha.includes(';')) return linha.split(';').map(c => limparTexto(c));
+            if (linha.includes('\t')) return linha.split('\t').map(c => limparTexto(c));
+            if (linha.includes('|')) return linha.split('|').map(c => limparTexto(c));
+            return linha.trim().split(/\s{2,}/).map(c => limparTexto(c));
+        }
+
+        function converterParaData(dataTexto) {
+            if (!dataTexto || dataTexto === '-') return null;
+            const partes = dataTexto.split('/');
+            if (partes.length === 3) {
+                const dia = parseInt(partes[0], 10);
+                const mes = parseInt(partes[1], 10) - 1;
+                const ano = parseInt(partes[2], 10);
+                return new Date(ano, mes, dia);
+            }
+            return null;
+        }
+
+        function calcularStatusPrazo(dataTexto) {
+            const dataPrevista = converterParaData(dataTexto);
+            if (!dataPrevista) return 'NO PRAZO';
+            
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
+
+            if (dataPrevista < hoje) {
+                return 'ATRASADO';
+            }
+            return 'NO PRAZO';
+        }
+
+        function ehSemObservacao(textoObs) {
+            const obsNorm = textoObs ? textoObs.trim().toLowerCase() : '';
+            return !obsNorm || obsNorm === 'sem observação' || obsNorm === 'sem observacao';
+        }
+
+        async function analisarArquivos() {
+            const fileES2791 = arquivosCarregados['f1'];
+            const fileES2611 = arquivosCarregados['f2'];
+            const filePedido = arquivosCarregados['f3'];
+            const fileLeadTime = arquivosCarregados['f4'];
+
+            if (!filePedido && !fileES2791 && !fileES2611 && !fileLeadTime) {
+                alert('Atenção: Selecione os arquivos para análise.');
+                return;
+            }
+
+            const txtES2791 = await lerArquivoTexto(fileES2791);
+            const txtES2611 = await lerArquivoTexto(fileES2611);
+            const txtPedido = await lerArquivoTexto(filePedido);
+            const txtLeadTime = await lerArquivoTexto(fileLeadTime);
+
+            // 1. Processa Consumo Médio (ES2611)
+            const mapaConsumo = new Map();
+            if (txtES2611.trim()) {
+                const linhas2611 = txtES2611.split(/\r?\n/);
+                for (let i = 0; i < linhas2611.length; i++) {
+                    const cols = quebrarLinhaInteligente(linhas2611[i]);
+                    if (cols.length >= 2) {
+                        const cod = normalizarCodigo(cols[0]);
+                        const consumo = extrairNumero(cols[cols.length - 1] || cols[1]);
+                        if (cod) mapaConsumo.set(cod, consumo);
+                    }
+                }
+            }
+
+            // 2. Processa Lead Time
+            const mapaLeadTime = new Map();
+            if (txtLeadTime.trim()) {
+                const linhasLT = txtLeadTime.split(/\r?\n/);
+                for (let i = 0; i < linhasLT.length; i++) {
+                    const line = linhasLT[i].trim();
+                    if (!line || line.startsWith('-') || line.startsWith('=')) continue;
+                    
+                    const cols = quebrarLinhaInteligente(line);
+                    if (cols.length >= 2) {
+                        const cod = normalizarCodigo(cols[0]);
+                        let ltVal = 0;
+                        for (let c = cols.length - 1; c >= 1; c--) {
+                            const n = extrairNumero(cols[c]);
+                            if (n > 0) { ltVal = n; break; }
+                        }
+                        if (cod) mapaLeadTime.set(cod, ltVal);
+                    }
+                }
+            }
+
+            // 3. Processa Pedidos de Compra
+            const mapaPedidosItem = new Map();
+            dadosPedidos = [];
+            const pedidosSet = new Set();
+            const fornecedoresSet = new Set();
+            const obsSet = new Set();
+
+            if (txtPedido.trim()) {
+                const linhasPed = txtPedido.split(/\r?\n/);
+                for (let i = 0; i < linhasPed.length; i++) {
+                    const line = linhasPed[i].trim();
+                    if (!line || line.startsWith('-') || line.startsWith('=')) continue;
+
+                    const cols = quebrarLinhaInteligente(line);
+                    let idxCodPed = 10;
+                    if (cols.length <= 10) {
+                        idxCodPed = cols.findIndex((c, index) => index > 0 && /^\d{4,8}$/.test(c));
+                    }
+
+                    if (idxCodPed !== -1 && cols.length > idxCodPed) {
+                        const codigoOriginal = cols[idxCodPed];
+                        const codigoNormalizado = normalizarCodigo(codigoOriginal);
+
+                        if (!codigoOriginal || codigoOriginal.toLowerCase().includes('código') || codigoOriginal.toLowerCase().includes('codigo')) continue;
+
+                        const numPedido = cols[4] || '-';
+                        const nomeFornecedor = cols[1] || '-';
+                        const dtPrevEntrega = cols[9] || '-';
+                        const saldo = cols[15] || '0';
+                        const obsRaw = (cols[19] && cols[19].trim() !== '' && cols[19].trim() !== '-') ? cols[19].trim() : 'Sem observação';
+
+                        const infoPedido = {
+                            numPedido,
+                            fornecedor: nomeFornecedor,
+                            prazoEntrega: dtPrevEntrega,
+                            saldo: saldo
+                        };
+
+                        if (!mapaPedidosItem.has(codigoNormalizado)) {
+                            mapaPedidosItem.set(codigoNormalizado, infoPedido);
+                        }
+
+                        const statusPrazo = calcularStatusPrazo(dtPrevEntrega);
+                        const item = {
+                            matriculaForn: cols[0] || '',
+                            nomeFornecedor: nomeFornecedor,
+                            numPedido: numPedido,
+                            dtPedido: cols[7] || '',
+                            dtPrevEntrega: dtPrevEntrega,
+                            statusPrazo: statusPrazo,
+                            codigoItem: codigoOriginal,
+                            descrItem: cols[11] || '',
+                            saldo: saldo,
+                            observacao: obsRaw
+                        };
+
+                        dadosPedidos.push(item);
+                        if (numPedido !== '-') pedidosSet.add(numPedido);
+                        if (nomeFornecedor !== '-') fornecedoresSet.add(nomeFornecedor);
+                        
+                        if (!ehSemObservacao(obsRaw)) {
+                            obsSet.add(obsRaw);
+                        }
+                    }
+                }
+            }
+
+            // 4. Processa Cadastro/Estoque (ES2791)
+            dadosReposicao = [];
+            if (txtES2791.trim()) {
+                const linhasES = txtES2791.split(/\r?\n/);
+                let idxCodES = -1, idxDescrES = -1, idxEstqES = -1, idxMinES = -1, idxMaxES = -1;
+
+                for (let i = 0; i < Math.min(20, linhasES.length); i++) {
+                    const colsHead = quebrarLinhaInteligente(linhasES[i].toLowerCase());
+                    for (let c = 0; c < colsHead.length; c++) {
+                        const h = colsHead[c];
+                        if ((h.includes('item') || h.includes('codigo') || h.includes('código')) && idxCodES === -1) idxCodES = c;
+                        if ((h.includes('desc') || h.includes('nome')) && idxDescrES === -1) idxDescrES = c;
+                        if ((h.includes('saldo') || h.includes('estoque') || h.includes('est.atual')) && idxEstqES === -1) idxEstqES = c;
+                        if ((h.includes('min') || h.includes('mín') || h.includes('est.min')) && idxMinES === -1) idxMinES = c;
+                        if ((h.includes('max') || h.includes('máx') || h.includes('est.max')) && idxMaxES === -1) idxMaxES = c;
+                    }
+                }
+
+                if (idxCodES === -1) idxCodES = 0;
+                if (idxDescrES === -1) idxDescrES = 1;
+                if (idxEstqES === -1) idxEstqES = 2;
+                if (idxMinES === -1) idxMinES = 3;
+                if (idxMaxES === -1) idxMaxES = 4;
+
+                const hoje = new Date();
+
+                for (let i = 0; i < linhasES.length; i++) {
+                    const line = linhasES[i].trim();
+                    if (!line || line.startsWith('-') || line.startsWith('=')) continue;
+
+                    const cols = quebrarLinhaInteligente(line);
+
+                    if (cols.length > idxCodES) {
+                        const codItemNorm = normalizarCodigo(cols[idxCodES]);
+                        if (!codItemNorm || codItemNorm.toLowerCase().includes('item') || codItemNorm.toLowerCase().includes('codigo')) continue;
+
+                        const descr = cols.length > idxDescrES ? cols[idxDescrES] : '';
+                        const estAtual = cols.length > idxEstqES ? extrairNumero(cols[idxEstqES]) : 0;
+                        const valMin = cols.length > idxMinES ? extrairNumero(cols[idxMinES]) : 0;
+                        const valMax = cols.length > idxMaxES ? extrairNumero(cols[idxMaxES]) : 0;
+
+                        const consumoMedio = mapaConsumo.get(codItemNorm) || 0;
+                        const leadTime = mapaLeadTime.get(codItemNorm) || 0;
+                        const pedInfo = mapaPedidosItem.get(codItemNorm) || { numPedido: '-', fornecedor: '-', prazoEntrega: '-', saldo: '0' };
+
+                        let diasAteRuptura = 999999;
+                        let previsaoRuptura = 'Sem consumo';
+
+                        if (consumoMedio > 0) {
+                            const consumoDiario = consumoMedio / 30;
+                            diasAteRuptura = Math.floor(estAtual / consumoDiario);
+                            
+                            if (diasAteRuptura <= 0 && estAtual <= 0) {
+                                previsaoRuptura = 'Em Ruptura';
+                                diasAteRuptura = -1;
+                            } else {
+                                const dataRuptura = new Date();
+                                dataRuptura.setDate(hoje.getDate() + diasAteRuptura);
+                                const dia = String(dataRuptura.getDate()).padStart(2, '0');
+                                const mes = String(dataRuptura.getMonth() + 1).padStart(2, '0');
+                                const ano = dataRuptura.getFullYear();
+                                previsaoRuptura = `${dia}/${mes}/${ano} (${diasAteRuptura}d)`;
+                            }
+                        }
+
+                        let statusRepo = 'OK';
+                        if (estAtual <= valMin && valMin > 0) {
+                            statusRepo = 'COMPRAR';
+                        } else if (estAtual > valMax && valMax > 0) {
+                            statusRepo = 'EXCESSO';
+                        }
+
+                        dadosReposicao.push({
+                            codigo: cols[idxCodES],
+                            descricao: descr,
+                            estoqueAtual: estAtual,
+                            estoqueMin: valMin,
+                            estoqueMax: valMax,
+                            consumoMedio: consumoMedio,
+                            leadTime: leadTime,
+                            pedido: pedInfo.numPedido,
+                            saldoPedido: pedInfo.saldo,
+                            fornecedor: pedInfo.fornecedor,
+                            prazoEntrega: pedInfo.prazoEntrega,
+                            previsaoRuptura: previsaoRuptura,
+                            diasAteRuptura: diasAteRuptura,
+                            status: statusRepo
+                        });
+                    }
+                }
+            }
+
+            // Atualiza opções dos filtros de Reposição
+            const fornecedoresRepoSet = new Set();
+            const pedidosRepoSet = new Set();
+            dadosReposicao.forEach(i => {
+                if (i.fornecedor && i.fornecedor !== '-') fornecedoresRepoSet.add(i.fornecedor);
+                if (i.pedido && i.pedido !== '-') pedidosRepoSet.add(i.pedido);
+            });
+
+            preencherSelect('filterRepoFornecedor', Array.from(fornecedoresRepoSet), 'Todos os Fornecedores');
+            preencherSelect('filterRepoPedido', Array.from(pedidosRepoSet), 'Todos os Pedidos');
+
+            // Renderiza Reposição
+            aplicarFiltrosRepo();
+
+            // Renderiza Pedidos em Aberto
+            dadosPedidos.sort((a, b) => {
+                const dateA = converterParaData(a.dtPrevEntrega);
+                const dateB = converterParaData(b.dtPrevEntrega);
+                if (!dateA && !dateB) return 0;
+                if (!dateA) return 1;
+                if (!dateB) return -1;
+                return dateA - dateB;
+            });
+
+            preencherSelect('filterPedido', Array.from(pedidosSet), 'Todos os Pedidos');
+            preencherSelect('filterFornecedor', Array.from(fornecedoresSet), 'Todos os Fornecedores');
+            preencherSelectObs('filterObs', Array.from(obsSet));
+
+            aplicarFiltros();
+        }
+
+        function aplicarFiltrosRepo() {
+            const termoItem = document.getElementById('filterRepoItem').value.toLowerCase();
+            const fornecedor = document.getElementById('filterRepoFornecedor').value;
+            const pedido = document.getElementById('filterRepoPedido').value;
+            const statusPrazo = document.getElementById('filterRepoStatusPrazo').value;
+            const modoOrdenacao = document.getElementById('sortRepo').value;
+
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
+
+            let filtrados = dadosReposicao.filter(item => {
+                const matchItem = !termoItem || item.codigo.toLowerCase().includes(termoItem) || item.descricao.toLowerCase().includes(termoItem);
+                const matchForn = !fornecedor || item.fornecedor === fornecedor;
+                const matchPed = !pedido || item.pedido === pedido;
+                
+                let matchPrazo = true;
+                const dtPrazo = converterParaData(item.prazoEntrega);
+                if (statusPrazo === 'VENCIDO') {
+                    matchPrazo = dtPrazo && dtPrazo < hoje;
+                } else if (statusPrazo === 'NO_PRAZO') {
+                    matchPrazo = !dtPrazo || dtPrazo >= hoje;
+                }
+
+                return matchItem && matchForn && matchPed && matchPrazo;
+            });
+
+            filtrados.sort((a, b) => {
+                if (modoOrdenacao === 'RUPTURA_ASC') {
+                    return a.diasAteRuptura - b.diasAteRuptura;
+                } else if (modoOrdenacao === 'CONSUMO_DESC') {
+                    return b.consumoMedio - a.consumoMedio;
+                } else if (modoOrdenacao === 'CONSUMO_ASC') {
+                    return a.consumoMedio - b.consumoMedio;
+                } else if (modoOrdenacao === 'PRAZO_VENCIDO_DESC') {
+                    const dateA = converterParaData(a.prazoEntrega);
+                    const dateB = converterParaData(b.prazoEntrega);
+                    if (!dateA && !dateB) return 0;
+                    if (!dateA) return 1;
+                    if (!dateB) return -1;
+                    return dateA - dateB;
+                }
+                return 0;
+            });
+
+            renderizarTabelaReposicao(filtrados);
+        }
+
+        function renderizarTabelaReposicao(lista) {
+            const tableBody = document.getElementById('tableBodyReposicao');
+            tableBody.innerHTML = '';
+
+            if (lista.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding: 20px;">Nenhum item encontrado.</td></tr>';
+                return;
+            }
+
+            lista.forEach(item => {
+                const tr = document.createElement('tr');
+                
+                let badgeStatus = '<span class="badge-noprazo">OK</span>';
+                if (item.status === 'COMPRAR') {
+                    badgeStatus = '<span class="badge-atrasado">NECESSITA REPOSIÇÃO</span>';
+                } else if (item.status === 'EXCESSO') {
+                    badgeStatus = '<span style="background:#eab308; color:white; padding:3px 6px; border-radius:4px; font-size:10px; font-weight:bold;">EXCESSO</span>';
+                }
+
+                let badgeRuptura = item.previsaoRuptura.includes('Em Ruptura')
+                    ? `<span class="badge-ruptura">${item.previsaoRuptura}</span>`
+                    : item.previsaoRuptura;
+
+                tr.innerHTML = `
+                    <td><strong>${item.codigo}</strong></td>
+                    <td style="white-space: normal; max-width: 200px;">${item.descricao}</td>
+                    <td><strong>${item.estoqueAtual}</strong></td>
+                    <td>${item.estoqueMin}</td>
+                    <td>${item.estoqueMax}</td>
+                    <td>${item.consumoMedio ? item.consumoMedio.toFixed(2) : '0'}</td>
+                    <td>${item.leadTime ? item.leadTime + ' dias' : '-'}</td>
+                    <td>${item.pedido}</td>
+                    <td><strong>${item.saldoPedido !== '0' ? item.saldoPedido : '-'}</strong></td>
+                    <td style="white-space: normal; max-width: 150px;">${item.fornecedor}</td>
+                    <td>${item.prazoEntrega}</td>
+                    <td>${badgeRuptura}</td>
+                    <td>${badgeStatus}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function preencherSelect(elementId, opcoes, textoPadrao) {
+            const select = document.getElementById(elementId);
+            select.innerHTML = `<option value="">${textoPadrao}</option>`;
+            opcoes.sort().forEach(op => {
+                select.innerHTML += `<option value="${op}">${op}</option>`;
+            });
+        }
+
+        function preencherSelectObs(elementId, opcoesObs) {
+            const select = document.getElementById(elementId);
+            select.innerHTML = `
+                <option value="">Todas as Observações (Com e Sem)</option>
+                <option value="__COM_OBS__">Somente COM Observação</option>
+                <option value="__SEM_OBS__">Somente SEM Observação</option>
+            `;
+            opcoesObs.sort().forEach(op => {
+                select.innerHTML += `<option value="${op}">${op}</option>`;
+            });
+        }
+
+        function renderizarTabela(lista) {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+
+            if (lista.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 20px;">Nenhum item encontrado.</td></tr>';
+                return;
+            }
+
+            lista.forEach(item => {
+                const tr = document.createElement('tr');
+
+                const badgePrazoHTML = item.statusPrazo === 'ATRASADO'
+                    ? '<span class="badge-atrasado">ATRASADO</span>'
+                    : '<span class="badge-noprazo">NO PRAZO</span>';
+
+                tr.innerHTML = `
+                    <td><strong>${item.numPedido || item.dtPedido}</strong></td>
+                    <td><strong>${item.codigoItem}</strong></td>
+                    <td style="white-space: normal; max-width: 200px;">${item.descrItem}</td>
+                    <td>${item.matriculaForn}</td>
+                    <td>${item.nomeFornecedor}</td>
+                    <td><strong>${item.saldo}</strong></td>
+                    <td>
+                        ${item.dtPrevEntrega}<br>
+                        ${badgePrazoHTML}
+                    </td>
+                    <td><span class="badge-normal">NORMAL</span></td>
+                    <td class="obs-column">${item.observacao}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function aplicarFiltros() {
+            const pedido = document.getElementById('filterPedido').value;
+            const fornecedor = document.getElementById('filterFornecedor').value;
+            const obs = document.getElementById('filterObs').value;
+            const status = document.getElementById('filterStatus').value;
+
+            // 1. Filtra os itens/linhas que atendem aos filtros
+            const filtrados = dadosPedidos.filter(item => {
+                const matchPedido = !pedido || item.numPedido === pedido;
+                const matchForn = !fornecedor || item.nomeFornecedor === fornecedor;
+                
+                let matchObs = true;
+                if (obs === '') {
+                    matchObs = true;
+                } else if (obs === '__COM_OBS__') {
+                    matchObs = !ehSemObservacao(item.observacao);
+                } else if (obs === '__SEM_OBS__') {
+                    matchObs = ehSemObservacao(item.observacao);
+                } else {
+                    matchObs = item.observacao === obs;
+                }
+
+                const matchStatus = !status || item.statusPrazo === status;
+                return matchPedido && matchForn && matchObs && matchStatus;
+            });
+
+            // 2. Atualiza os cards agrupando por PEDIDOS ÚNICOS
+            atualizarResumoPedidos(filtrados, pedido, fornecedor, obs, status);
+
+            // 3. Exibe os resultados na tabela
+            renderizarTabela(filtrados);
+        }
+
+        function atualizarResumoPedidos(listaFiltrada, filtroPedido, filtroForn, filtroObs, filtroStatus) {
+            // Total de linhas/itens encontrados no filtro
+            const totalItens = listaFiltrada.length;
+            
+            // Total de Pedidos ÚNICOS no filtro atual
+            const setPedidosUnicos = new Set(listaFiltrada.map(i => i.numPedido).filter(p => p && p !== '-'));
+            const pedidosUnicos = setPedidosUnicos.size;
+
+            // 1. Contagem de PEDIDOS ÚNICOS Atrasados
+            let countPedidosAtrasados = 0;
+            if (filtroStatus !== 'NO PRAZO') {
+                const setAtrasados = new Set(
+                    listaFiltrada
+                        .filter(i => i.statusPrazo === 'ATRASADO')
+                        .map(i => i.numPedido)
+                        .filter(p => p && p !== '-')
+                );
+                countPedidosAtrasados = setAtrasados.size;
+            }
+
+            // 2. Contagem de PEDIDOS ÚNICOS Atrasados SEM Observação
+            let countAtrasadosSemObs = 0;
+            if (filtroStatus !== 'NO PRAZO' && filtroObs !== '__COM_OBS__') {
+                const setAtrasadosSemObs = new Set(
+                    dadosPedidos.filter(item => {
+                        const matchPedido = !filtroPedido || item.numPedido === filtroPedido;
+                        const matchForn = !filtroForn || item.nomeFornecedor === filtroForn;
+                        
+                        let matchObs = true;
+                        if (filtroObs === '__SEM_OBS__' || filtroObs === '') {
+                            matchObs = ehSemObservacao(item.observacao);
+                        } else {
+                            matchObs = item.observacao === filtroObs && ehSemObservacao(item.observacao);
+                        }
+
+                        return matchPedido && matchForn && matchObs && item.statusPrazo === 'ATRASADO';
+                    }).map(i => i.numPedido).filter(p => p && p !== '-')
+                );
+                countAtrasadosSemObs = setAtrasadosSemObs.size;
+            }
+
+            // Atualiza na tela
+            document.getElementById('countTotalItens').textContent = totalItens;
+            document.getElementById('countPedidosUnicos').textContent = pedidosUnicos;
+            document.getElementById('countAtrasados').textContent = countPedidosAtrasados;
+            document.getElementById('countAtrasadosSemObs').textContent = countAtrasadosSemObs;
+        }
+    </script>
+
+<script src="../auth-guard.js"></script>
+</body>
+</html>

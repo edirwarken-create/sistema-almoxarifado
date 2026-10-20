@@ -1,0 +1,1833 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema Integrado - Malote e Veículos</title>
+  
+  <!-- Firebase Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+
+  <style>
+    /* Reset & Base */
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f1f5f9; color: #0f172a; display: flex; height: 100vh; overflow: hidden; }
+
+    /* Tela de Login / Seleção de Perfil */
+    .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; display: flex; justify-content: center; align-items: center; z-index: 2000; }
+    .login-box { background: white; padding: 2rem; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+    .login-box h2 { color: #0f172a; margin-bottom: 0.5rem; font-size: 1.5rem; }
+    .login-box p { color: #64748b; font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .profile-btn { width: 100%; padding: 0.85rem; margin-bottom: 0.75rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+    .btn-driver-profile { background: #2563eb; color: white; }
+    .btn-driver-profile:hover { background: #1d4ed8; }
+    .btn-reception-profile { background: #0284c7; color: white; }
+    .btn-reception-profile:hover { background: #0369a1; }
+    .btn-admin-profile { background: #334155; color: white; }
+    .btn-admin-profile:hover { background: #1e293b; }
+
+    /* Layout Principal */
+    .app-sidebar { width: 220px; background-color: #0f172a; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
+    .app-sidebar .brand { padding: 1.25rem 1rem; font-size: 1.1rem; font-weight: 800; text-align: center; border-bottom: 1px solid #1e293b; color: #38bdf8; }
+    .app-sidebar .nav-group { padding: 0.5rem 0; flex: 1; }
+    .app-sidebar .sidebar-btn { width: 100%; padding: 0.85rem 1.25rem; background: none; border: none; color: #94a3b8; text-align: left; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .app-sidebar .sidebar-btn:hover { color: white; background-color: #1e293b; }
+    .app-sidebar .sidebar-btn.active { color: white; background-color: #2563eb; border-left: 4px solid #60a5fa; }
+    .btn-logout { background: #7f1d1d !important; color: #fca5a5 !important; border-top: 1px solid #1e293b; }
+
+    .mobile-header { display: none; }
+    .app-content { flex: 1; overflow-y: auto; padding: 1.5rem; }
+    .system-view { display: none; }
+    .system-view.active { display: block; }
+
+    /* UI Componentes Gerais */
+    .card { background: white; padding: 1.25rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem; border: 1px solid #e2e8f0; }
+    .field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.75rem; }
+    label { font-size: 0.85rem; font-weight: 700; color: #475569; }
+    input, select, textarea { padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; width: 100%; background: #fff; }
+    button { background-color: #2563eb; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: background 0.2s; }
+    button:hover { background-color: #1d4ed8; }
+
+    .btn-clear { background-color: #64748b; }
+    .btn-edit { background-color: #d97706; }
+    .btn-done { background-color: #16a34a; }
+    .btn-fail { background-color: #dc2626; }
+
+    /* Header de Atendimento */
+    .reception-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; background: #0f172a; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; }
+    .reception-header h3 { font-size: 1.1rem; color: #38bdf8; }
+
+    /* Tabelas Padrão */
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; background: white; border-radius: 8px; overflow: hidden; }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 0.88rem; }
+    th { background-color: #f8fafc; font-weight: 700; color: #475569; }
+
+    .malote-subnav { display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; flex-wrap: wrap; }
+    .sub-nav-btn { padding: 0.5rem 1rem; border: none; background: none; font-weight: 700; color: #64748b; cursor: pointer; }
+    .sub-nav-btn.active { color: #2563eb; border-bottom: 2px solid #2563eb; }
+
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .tab-btn { padding: 0.5rem 1rem; background: #e2e8f0; border: none; font-weight: 600; color: #475569; cursor: pointer; border-radius: 6px; }
+    .tab-btn.active { background: #2563eb; color: white; }
+
+    .badge { padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; display: inline-block; }
+    .badge-pendente { background: #fef3c7; color: #d97706; }
+    .badge-devolvido { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
+    .badge-concluido { background: #dcfce7; color: #15803d; }
+    .badge-nao-concluido { background: #fee2e2; color: #b91c1c; }
+
+    /* Grid de Veículos */
+    .vehicles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+    .vehicle-card { background: #f8fafc; border: 2px solid #cbd5e1; border-radius: 8px; padding: 0.75rem; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
+    .vehicle-card.selected { border-color: #2563eb; background: #eff6ff; box-shadow: 0 0 0 2px #2563eb; }
+    .vehicle-card.status-in-use { border-color: #16a34a; background: #f0fdf4; }
+    .vehicle-card.status-reserved { border-color: #d97706; background: #fffbeb; }
+
+    .vehicle-plate { font-family: monospace; font-weight: 800; background: #fff; border: 1px solid #cbd5e1; padding: 0.1rem 0.3rem; border-radius: 4px; margin: 0.25rem 0; display: inline-block; }
+    
+    .status-tag { font-size: 0.68rem; font-weight: 800; padding: 0.15rem 0.4rem; border-radius: 4px; text-transform: uppercase; margin-top: 0.25rem; display: block; }
+    .tag-free { background: #e2e8f0; color: #475569; }
+    .tag-in-use { background: #dcfce7; color: #15803d; }
+    .tag-reserved { background: #fef3c7; color: #b45309; }
+
+    .vehicle-schedule-info { margin-top: 0.5rem; background: #fffbe0; border: 1px solid #fef08a; border-radius: 6px; padding: 0.75rem; font-size: 0.85rem; color: #713f12; display: none; }
+    .vehicle-schedule-info ul { margin-left: 1.25rem; margin-top: 0.35rem; }
+
+    /* Modais */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; padding: 1.5rem; border-radius: 8px; width: 90%; max-width: 450px; }
+    .modal-buttons { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+
+    /* Painel do Motorista */
+    .driver-container { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; }
+    .driver-filter-card { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1rem; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 0.75rem; }
+    .driver-task-card { background: white; border: 1px solid #cbd5e1; border-left: 5px solid #d97706; border-radius: 8px; padding: 1rem; margin-bottom: 0.85rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 0.5rem; }
+    .driver-task-header { font-size: 1rem; font-weight: 800; color: #0f172a; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.35rem; }
+    .driver-task-detail { font-size: 0.88rem; color: #334155; line-height: 1.3; }
+    .driver-task-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .driver-task-actions button { flex: 1; padding: 0.65rem; font-size: 0.85rem; font-weight: 700; }
+
+    .driver-logout-card { margin-top: 1rem; background: white; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; }
+    .btn-driver-logout { width: 100%; background: #7f1d1d; color: white; padding: 0.75rem; font-size: 0.95rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; transition: background 0.2s; }
+    .btn-driver-logout:hover { background: #991b1b; }
+
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .app-sidebar { display: none !important; }
+      .mobile-header { display: flex; background-color: #0f172a; padding: 0.5rem; gap: 0.5rem; justify-content: space-around; align-items: center; border-bottom: 2px solid #2563eb; }
+      .mobile-header button { flex: 1; padding: 0.5rem 0.25rem; font-size: 0.8rem; background-color: #1e293b; color: #94a3b8; border-radius: 4px; border: none; }
+      .mobile-header button.active { background-color: #2563eb; color: white; font-weight: 700; }
+      .app-content { padding: 0.75rem; }
+    }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+  <!-- TELA DE SELEÇÃO DE PERFIL / LOGIN -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+      <h2>Acesso ao Sistema</h2>
+      <p>Selecione como deseja acessar:</p>
+      <button class="profile-btn btn-driver-profile" onclick="selecionarPerfil('motorista')">📱 Acesso Motorista</button>
+      <button class="profile-btn btn-reception-profile" onclick="selecionarPerfil('atendimento')">👥 Acesso Atendimento</button>
+      <button class="profile-btn btn-admin-profile" onclick="selecionarPerfil('admin')">🔒 Acesso Administrador</button>
+    </div>
+  </div>
+
+  <!-- BARRA DE NAVEGAÇÃO LATERAL -->
+  <nav class="app-sidebar" id="appSidebar">
+    <div class="brand">SISTEMAS</div>
+    <div class="nav-group">
+      <button class="sidebar-btn active" id="btn-sys-malote" onclick="switchGlobalSystem('sys-malote')">📦 Malote</button>
+      <button class="sidebar-btn" id="btn-sys-veiculos" onclick="switchGlobalSystem('sys-veiculos')">🚗 Veículos</button>
+    </div>
+    <button class="sidebar-btn btn-logout" onclick="trocarPerfil()">🚪 Sair / Trocar Perfil</button>
+  </nav>
+
+  <!-- BARRA DE NAVEGAÇÃO MOBILE -->
+  <div class="mobile-header" id="mobileHeader">
+    <button id="m-btn-malote-admin" class="active" onclick="switchGlobalSystem('sys-malote'); switchMaloteView('admin');">📦 Malote Admin</button>
+    <button id="m-btn-malote-driver" onclick="switchGlobalSystem('sys-malote'); switchMaloteView('motorista');">📱 Motorista</button>
+    <button id="m-btn-veiculos" onclick="switchGlobalSystem('sys-veiculos');">🚗 Veículos</button>
+    <button onclick="trocarPerfil()" style="background:#7f1d1d; color:#fff;">🚪 Sair</button>
+  </div>
+
+  <main class="app-content">
+
+    <!-- BARRA SUPERIOR PARA ATENDIMENTO -->
+    <div class="reception-header" id="receptionHeader" style="display: none;">
+      <h3>🚗 Consulta de Reservas Ativas (Atendimento)</h3>
+      <button onclick="trocarPerfil()" style="background:#7f1d1d; color:#fff;">🚪 Sair</button>
+    </div>
+
+    <!-- ================= SISTEMA MALOTE ================= -->
+    <section id="sys-malote" class="system-view active">
+      <div class="malote-subnav" id="maloteSubNav">
+        <button class="sub-nav-btn active" id="btnNavAdmin" onclick="switchMaloteView('admin')">Painel Admin</button>
+        <button class="sub-nav-btn" id="btnNavDriver" onclick="switchMaloteView('motorista')">Painel Motorista</button>
+        <button class="sub-nav-btn" id="btnNavMotoristas" onclick="switchMaloteView('gerenciar-motoristas')">👤 Gerenciar Motoristas</button>
+      </div>
+
+      <div id="adminView">
+        <div class="card">
+          <h3>Cadastrar Atividades</h3><br>
+          <form id="multiTaskForm">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Período</th>
+                  <th>Horário</th>
+                  <th>Atividade / Destino</th>
+                  <th>Motorista</th>
+                </tr>
+              </thead>
+              <tbody id="rowsContainer"></tbody>
+            </table>
+            <button type="submit" style="margin-top: 1rem; width: 100%;">+ Cadastrar Atividades</button>
+          </form>
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" id="tabAdminPendentes" onclick="switchAdminTab('pendentes')">Pendentes / Para Reagendar</button>
+          <button class="tab-btn" id="tabAdminHistorico" onclick="switchAdminTab('historico')">Histórico Completo</button>
+        </div>
+
+        <div class="card" style="display: flex; gap: 1rem; align-items: flex-end;">
+          <div class="field" style="flex:1;">
+            <label>Data</label>
+            <input type="date" id="filterDataAdmin" onchange="renderAdminTasks()">
+          </div>
+          <div class="field" style="flex:1;">
+            <label>Motorista</label>
+            <select id="filterMotoristaAdmin" onchange="renderAdminTasks()">
+              <option value="">Todos os Motoristas</option>
+            </select>
+          </div>
+          <button class="btn-clear" onclick="clearFiltersAdmin()" style="margin-bottom: 0.75rem;">Limpar Filtros</button>
+        </div>
+
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Horário</th>
+                <th>Atividade</th>
+                <th>Motorista</th>
+                <th>Status</th>
+                <th>Observação / Motivo</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="adminTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="driverView" style="display: none;">
+        <div class="driver-container">
+          <div class="driver-filter-card">
+            <div class="field">
+              <label>Data</label>
+              <input type="date" id="filterDataDriver" onchange="renderDriverTasks()">
+            </div>
+            <div class="field">
+              <label>Motorista</label>
+              <select id="filterMotoristaDriver" onchange="renderDriverTasks()">
+                <option value="">Todos os Motoristas</option>
+              </select>
+            </div>
+            <button class="btn-clear" onclick="clearFiltersDriver()">Limpar Filtros</button>
+          </div>
+          <div id="driverCardsList"></div>
+
+          <!-- BOTÃO SAIR NO FINAL DO PAINEL DO MOTORISTA -->
+          <div class="driver-logout-card">
+            <button class="btn-driver-logout" onclick="trocarPerfil()">🚪 Sair / Trocar Perfil</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABA GERENCIAR MOTORISTAS -->
+      <div id="motoristasView" style="display: none;">
+        <div class="card">
+          <h3>Cadastrar Novo Motorista</h3><br>
+          <form id="form-add-motorista" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;">
+            <div class="field" style="flex: 2; min-width: 200px;">
+              <label>Nome do Motorista</label>
+              <input type="text" id="novo-nome-motorista" placeholder="Ex: Roberto Carlos" required>
+            </div>
+            <button type="submit" style="margin-bottom: 0.75rem; height: 38px;">+ Incluir Motorista</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>Motoristas Cadastrados</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th style="width: 120px;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="table-motoristas-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SISTEMA VEÍCULOS ================= -->
+    <section id="sys-veiculos" class="system-view">
+      <div class="tabs" id="veiculosTabs">
+        <button class="tab-btn active" onclick="openVeiculosTab('nova-reserva', event)">Nova Reserva</button>
+        <button class="tab-btn" onclick="openVeiculosTab('reservas-ativas', event)">Ativas</button>
+        <button class="tab-btn" onclick="openVeiculosTab('historico', event)">Histórico</button>
+        <button class="tab-btn" onclick="openVeiculosTab('gerenciar-veiculos', event)">🚗 Gerenciar Veículos</button>
+        <button class="tab-btn" onclick="openVeiculosTab('config-senha', event)">⚙️ Configurar Senhas & Dados</button>
+      </div>
+
+      <div id="nova-reserva" class="tab-content">
+        <div class="card">
+          <label style="margin-bottom: 0.5rem; display:block;">Selecione o Veículo:</label>
+          <div id="vehicles-header" class="vehicles-grid"></div>
+
+          <form id="form-reserva" style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <input type="hidden" id="reserva-id">
+            
+            <div class="field">
+              <label>Veículo Selecionado</label>
+              <select id="select-veiculo" required onchange="aoSelecionarVeiculo()">
+                <option value="">Selecione um veículo</option>
+              </select>
+            </div>
+
+            <div id="vehicle-schedule-info" class="vehicle-schedule-info"></div>
+
+            <div class="field">
+              <label>Condutor</label>
+              <input type="text" id="condutor" required placeholder="Nome do condutor">
+            </div>
+
+            <div class="field">
+              <label>Qtd. Passageiros</label>
+              <input type="number" id="passageiros" min="1" max="20" required>
+            </div>
+
+            <div class="field">
+              <label>Destino</label>
+              <input type="text" id="destino" required placeholder="Destino da viagem">
+            </div>
+
+            <div class="field">
+              <label>Motivo</label>
+              <input type="text" id="motivo" required placeholder="Motivo">
+            </div>
+
+            <div style="display: flex; gap: 0.5rem;">
+              <div class="field" style="flex:1;">
+                <label>Data Início</label>
+                <input type="date" id="data-inicio" required>
+              </div>
+              <div class="field" style="flex:1;">
+                <label>Hora Início</label>
+                <input type="time" id="hora-inicio" required>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem;">
+              <div class="field" style="flex:1;">
+                <label>Data Fim</label>
+                <input type="date" id="data-fim" required>
+              </div>
+              <div class="field" style="flex:1;">
+                <label>Hora Fim</label>
+                <input type="time" id="hora-fim" required>
+              </div>
+            </div>
+
+            <button type="submit" id="btn-salvar">Confirmar Reserva</button>
+            <button type="button" id="btn-cancelar-edicao" class="btn-clear" style="display:none;" onclick="limparFormulario()">Cancelar Edição</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- RESERVAS ATIVAS COM FILTRO DATA FIM E INTERSECÇÃO -->
+      <div id="reservas-ativas" class="tab-content" style="display:none;">
+        <div class="card" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+          <div class="field" style="flex:1; min-width: 150px;">
+            <label>Veículo</label>
+            <select id="filterVeiculoAtivas" onchange="renderTabelasVeiculos()">
+              <option value="">Todos os Veículos</option>
+            </select>
+          </div>
+          <div class="field" style="flex:1; min-width: 150px;">
+            <label>Condutor</label>
+            <input type="text" id="filterCondutorAtivas" placeholder="Nome do condutor" oninput="renderTabelasVeiculos()">
+          </div>
+          <div class="field" style="flex:1; min-width: 150px;">
+            <label>Data Início</label>
+            <input type="date" id="filterDataInicioAtivas" onchange="renderTabelasVeiculos()">
+          </div>
+          <div class="field" style="flex:1; min-width: 150px;">
+            <label>Data Fim</label>
+            <input type="date" id="filterDataFimAtivas" onchange="renderTabelasVeiculos()">
+          </div>
+          <button class="btn-clear" onclick="clearFiltersVeiculosAtivas()" style="margin-bottom: 0.75rem;">Limpar Filtros</button>
+        </div>
+
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>Veículo</th>
+                <th>Condutor</th>
+                <th>Destino</th>
+                <th>Início</th>
+                <th>Fim</th>
+                <th class="th-acoes-veiculos">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="table-ativas-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- HISTÓRICO COM FILTRO DATA FIM E INTERSECÇÃO -->
+      <div id="historico" class="tab-content" style="display:none;">
+        <div class="card" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+          <div class="field" style="flex:1; min-width: 150px;">
+            <label>Veículo</label>
+            <select id="filterVeiculoHist" onchange="renderTabelasVeiculos()">
+              <option value="">Todos os Veículos</option>
+            </select>
+          </div>
+          <div class="field" style="flex:1; min-width: 150px;">
+            <label>Condutor</label>
+            <input type="text" id="filterCondutorHist" placeholder="Nome do condutor" oninput="renderTabelasVeiculos()">
+          </div>
+          <div class="field" style="flex:1; min-width: 150px;">
+            <label>Data Início</label>
+            <input type="date" id="filterDataInicioHist" onchange="renderTabelasVeiculos()">
+          </div>
+          <div class="field" style="flex:1; min-width: 150px;">
+            <label>Data Fim</label>
+            <input type="date" id="filterDataFimHist" onchange="renderTabelasVeiculos()">
+          </div>
+          <button class="btn-clear" onclick="clearFiltersVeiculosHist()" style="margin-bottom: 0.75rem;">Limpar Filtros</button>
+        </div>
+
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>Veículo</th>
+                <th>Condutor</th>
+                <th>Destino</th>
+                <th>Período</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="table-historico-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ABA GERENCIAR VEÍCULOS -->
+      <div id="gerenciar-veiculos" class="tab-content" style="display:none;">
+        <div class="card">
+          <h3>Cadastrar Novo Veículo</h3><br>
+          <form id="form-add-veiculo" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;">
+            <div class="field" style="flex: 2; min-width: 150px;">
+              <label>Modelo</label>
+              <input type="text" id="novo-modelo" placeholder="Ex: GOL, STRADA" required>
+            </div>
+            <div class="field" style="flex: 2; min-width: 120px;">
+              <label>Placa</label>
+              <input type="text" id="nova-placa" placeholder="Ex: ABC-1234" required>
+            </div>
+            <div class="field" style="flex: 1; min-width: 100px;">
+              <label>Máx. Passageiros</label>
+              <input type="number" id="novo-max-pass" min="1" max="20" value="5" required>
+            </div>
+            <button type="submit" style="margin-bottom: 0.75rem; height: 38px;">+ Incluir Veículo</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>Veículos Cadastrados</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Modelo</th>
+                <th>Placa</th>
+                <th>Capacidade</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="table-veiculos-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ABA CONFIGURAÇÃO DE SENHA E EXCLUSÃO DE HISTÓRICOS -->
+      <div id="config-senha" class="tab-content" style="display:none;">
+        <div class="card" style="max-width: 450px; margin: 0 auto 1.5rem auto;">
+          <h3>🔒 Alterar Senha do Administrador</h3><br>
+          <form id="form-alterar-senha">
+            <div class="field">
+              <label>Senha Atual do Admin</label>
+              <input type="password" id="senha-atual" required placeholder="Digite a senha atual">
+            </div>
+            <div class="field">
+              <label>Nova Senha</label>
+              <input type="password" id="senha-nova" required placeholder="Digite a nova senha">
+            </div>
+            <div class="field">
+              <label>Confirmar Nova Senha</label>
+              <input type="password" id="senha-confirma" required placeholder="Confirme a nova senha">
+            </div>
+            <button type="submit" style="width: 100%; margin-top: 0.5rem;">Atualizar Senha Admin</button>
+          </form>
+        </div>
+
+        <!-- ALTERAÇÃO DE SENHA DO ATENDIMENTO -->
+        <div class="card" style="max-width: 450px; margin: 0 auto 1.5rem auto;">
+          <h3>👥 Alterar Senha do Acesso Atendimento</h3><br>
+          <form id="form-alterar-senha-atendimento">
+            <div class="field">
+              <label>Nova Senha Atendimento</label>
+              <input type="password" id="senha-atendimento-nova" required placeholder="Digite a nova senha">
+            </div>
+            <div class="field">
+              <label>Confirmar Nova Senha</label>
+              <input type="password" id="senha-atendimento-confirma" required placeholder="Confirme a nova senha">
+            </div>
+            <button type="submit" style="width: 100%; margin-top: 0.5rem; background-color: #0284c7;">Atualizar Senha Atendimento</button>
+          </form>
+        </div>
+
+        <!-- ALTERAÇÃO DE SENHA DO MOTORISTA -->
+        <div class="card" style="max-width: 450px; margin: 0 auto 1.5rem auto;">
+          <h3>📱 Alterar Senha do Acesso Motorista</h3><br>
+          <form id="form-alterar-senha-motorista">
+            <div class="field">
+              <label>Nova Senha Motorista</label>
+              <input type="password" id="senha-motorista-nova" required placeholder="Digite a nova senha">
+            </div>
+            <div class="field">
+              <label>Confirmar Nova Senha</label>
+              <input type="password" id="senha-motorista-confirma" required placeholder="Confirme a nova senha">
+            </div>
+            <button type="submit" style="width: 100%; margin-top: 0.5rem; background-color: #2563eb;">Atualizar Senha Motorista</button>
+          </form>
+        </div>
+
+        <div class="card" style="max-width: 450px; margin: 0 auto; border-color: #fca5a5; background: #fff5f5;">
+          <h3 style="color: #991b1b;">⚠️ Gerenciamento de Histórico</h3>
+          <p style="font-size: 0.85rem; color: #7f1d1d; margin: 0.5rem 0 1rem 0;">
+            A exclusão apaga permanentemente os registros concluídos ou cancelados. Esta ação exige a senha do Administrador.
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <button class="btn-fail" onclick="limparHistoricoVeiculosComSenha()">🗑️ Limpar Histórico de Veículos</button>
+            <button class="btn-fail" onclick="limparHistoricoMaloteComSenha()">🗑️ Limpar Histórico do Malote</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAIS MALOTE -->
+  <div class="modal" id="editModal">
+    <div class="modal-content">
+      <h3>Editar / Reagendar Atividade</h3><br>
+      <div class="field"><label>Data</label><input type="date" id="editData"></div>
+      <div class="field">
+        <label>Período</label>
+        <select id="editPeriodo">
+          <option value="Manhã">Manhã</option>
+          <option value="Tarde">Tarde</option>
+          <option value="Noite">Noite</option>
+        </select>
+      </div>
+      <div class="field"><label>Horário</label><input type="time" id="editHorario"></div>
+      <div class="field"><label>Atividade</label><input type="text" id="editAtividade"></div>
+      <div class="field">
+        <label>Motorista</label>
+        <select id="editMotorista"></select>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn-clear" onclick="closeEditModal()">Cancelar</button>
+        <button onclick="saveEditTask()">Salvar / Reagendar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="failModal">
+    <div class="modal-content">
+      <h3>Justificativa de Não Conclusão</h3><br>
+      <div class="field">
+        <label>Motivo *</label>
+        <textarea id="modalObs" rows="3" placeholder="Informe o motivo..."></textarea>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn-clear" onclick="closeFailModal()">Cancelar</button>
+        <button class="btn-fail" onclick="confirmNotCompleted()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* CONFIGURAÇÃO FIREBASE */
+    const firebaseConfig = {
+      apiKey: "AIzaSyBADDrVhqgEKWcP51quHWp5Qk3eBIh_64o",
+      authDomain: "reserva-de-veiculos-71157.firebaseapp.com",
+      databaseURL: "https://reserva-de-veiculos-71157-default-rtdb.firebaseio.com",
+      projectId: "reserva-de-veiculos-71157",
+      storageBucket: "reserva-de-veiculos-71157.firebasestorage.app",
+      messagingSenderId: "709523825486",
+      appId: "1:709523825486:web:e992a9142cf2404eabb41f"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    let senhaSistema = "1234";
+    let senhaAtendimento = "1234";
+    let senhaMotorista = "1234";
+    let perfilAtual = null; // 'admin', 'motorista' ou 'atendimento'
+
+    function escutarSenhasNuvem() {
+      db.ref("configuracoes/senha").on("value", snapshot => {
+        if (snapshot.exists()) {
+          senhaSistema = snapshot.val();
+        } else {
+          db.ref("configuracoes/senha").set("1234");
+        }
+      });
+
+      db.ref("configuracoes/senhaAtendimento").on("value", snapshot => {
+        if (snapshot.exists()) {
+          senhaAtendimento = snapshot.val();
+        } else {
+          db.ref("configuracoes/senhaAtendimento").set("1234");
+        }
+      });
+
+      db.ref("configuracoes/senhaMotorista").on("value", snapshot => {
+        if (snapshot.exists()) {
+          senhaMotorista = snapshot.val();
+        } else {
+          db.ref("configuracoes/senhaMotorista").set("1234");
+        }
+      });
+    }
+
+    /* CONTROLE DE PERFIL / ACESSO */
+    function selecionarPerfil(perfil) {
+      if (perfil === 'admin') {
+        const pass = prompt("Digite a senha de Administrador:");
+        if (pass === null) return;
+        if (pass !== senhaSistema) {
+          alert("Senha incorreta!");
+          return;
+        }
+        perfilAtual = 'admin';
+        configurarInterfaceAdmin();
+      } else if (perfil === 'atendimento') {
+        const pass = prompt("Digite a senha de Acesso Atendimento:");
+        if (pass === null) return;
+        if (pass !== senhaAtendimento) {
+          alert("Senha incorreta!");
+          return;
+        }
+        perfilAtual = 'atendimento';
+        configurarInterfaceAtendimento();
+      } else {
+        const pass = prompt("Digite a senha de Acesso Motorista:");
+        if (pass === null) return;
+        if (pass !== senhaMotorista) {
+          alert("Senha incorreta!");
+          return;
+        }
+        perfilAtual = 'motorista';
+        configurarInterfaceMotorista();
+      }
+      document.getElementById('loginOverlay').style.display = 'none';
+    }
+
+    function trocarPerfil() {
+      perfilAtual = null;
+      document.getElementById('loginOverlay').style.display = 'flex';
+    }
+
+    function configurarInterfaceMotorista() {
+      document.getElementById('appSidebar').style.display = 'none';
+      document.getElementById('mobileHeader').style.display = 'none';
+      document.getElementById('receptionHeader').style.display = 'none';
+      document.getElementById('veiculosTabs').style.display = 'none';
+
+      document.getElementById('btn-sys-veiculos').style.display = 'none';
+      document.getElementById('m-btn-veiculos').style.display = 'none';
+      document.getElementById('m-btn-malote-admin').style.display = 'none';
+
+      document.getElementById('btnNavAdmin').style.display = 'none';
+      document.getElementById('btnNavMotoristas').style.display = 'none';
+
+      switchGlobalSystem('sys-malote');
+      switchMaloteView('motorista');
+    }
+
+    function configurarInterfaceAtendimento() {
+      document.getElementById('appSidebar').style.display = 'none';
+      document.getElementById('mobileHeader').style.display = 'none';
+      document.getElementById('receptionHeader').style.display = 'flex';
+      document.getElementById('veiculosTabs').style.display = 'none';
+
+      switchGlobalSystem('sys-veiculos');
+      openVeiculosTab('reservas-ativas');
+      renderTabelasVeiculos();
+    }
+
+    function configurarInterfaceAdmin() {
+      document.getElementById('appSidebar').style.display = 'flex';
+      document.getElementById('mobileHeader').style.display = 'none';
+      document.getElementById('receptionHeader').style.display = 'none';
+      document.getElementById('veiculosTabs').style.display = 'flex';
+
+      document.getElementById('btn-sys-veiculos').style.display = 'block';
+      document.getElementById('m-btn-veiculos').style.display = 'block';
+      document.getElementById('m-btn-malote-admin').style.display = 'block';
+
+      document.getElementById('btnNavAdmin').style.display = 'inline-block';
+      document.getElementById('btnNavMotoristas').style.display = 'inline-block';
+
+      switchGlobalSystem('sys-malote');
+      switchMaloteView('admin');
+      renderTabelasVeiculos();
+    }
+
+    /* HELPER DATA/HORA PARA TIMESTAMP */
+    function parseDateTime(dataStr, horaStr) {
+      if (!dataStr) return NaN;
+      let h = horaStr || "00:00";
+      let yyyy, mm, dd;
+
+      if (dataStr.includes('-')) {
+        const parts = dataStr.split('-');
+        yyyy = parts[0]; mm = parts[1]; dd = parts[2];
+      } else if (dataStr.includes('/')) {
+        const parts = dataStr.split('/');
+        if (parts[0].length === 4) {
+          yyyy = parts[0]; mm = parts[1]; dd = parts[2];
+        } else {
+          dd = parts[0]; mm = parts[1]; yyyy = parts[2];
+        }
+      } else return NaN;
+
+      mm = String(mm).padStart(2, '0');
+      dd = String(dd).padStart(2, '0');
+      if (h.length === 4) h = "0" + h;
+
+      return new Date(`${yyyy}-${mm}-${dd}T${h}:00`).getTime();
+    }
+
+    function formatarDataBR(dataStr) {
+      if (!dataStr) return '';
+      if (dataStr.includes('-')) return dataStr.split('-').reverse().join('/');
+      return dataStr;
+    }
+
+    function validarDataHoraFutura(dataStr, horaStr) {
+      const timestampAgendado = parseDateTime(dataStr, horaStr);
+      if (isNaN(timestampAgendado)) return false;
+      const agora = new Date().getTime();
+      return timestampAgendado >= agora;
+    }
+
+    /* NAVEGAÇÃO GLOBAL */
+    function switchGlobalSystem(systemId) {
+      if (perfilAtual === 'motorista' && systemId === 'sys-veiculos') return;
+
+      document.querySelectorAll('.system-view').forEach(view => view.classList.remove('active'));
+      document.querySelectorAll('.app-sidebar .sidebar-btn').forEach(btn => btn.classList.remove('active'));
+
+      document.getElementById(systemId).classList.add('active');
+      const sideBtn = document.getElementById('btn-' + systemId);
+      if (sideBtn) sideBtn.classList.add('active');
+
+      document.querySelectorAll('.mobile-header button').forEach(b => b.classList.remove('active'));
+      if (systemId === 'sys-veiculos') {
+        const mBtn = document.getElementById('m-btn-veiculos');
+        if (mBtn) mBtn.classList.add('active');
+      } else {
+        if (currentMaloteView === 'admin') document.getElementById('m-btn-malote-admin').classList.add('active');
+        else document.getElementById('m-btn-malote-driver').classList.add('active');
+      }
+    }
+
+    /* SCRIPT MALOTE */
+    let tasks = [];
+    let motoristas = [];
+    let currentMaloteView = 'admin';
+    let adminTab = 'pendentes';
+    let currentEditId = null;
+
+    const motoristasPadrao = ["Aldir", "Antonio", "Daniel", "Alexander", "Alessandro"];
+
+    function escutarMotoristasNouvem() {
+      db.ref("motoristas").on("value", snapshot => {
+        motoristas = [];
+        const data = snapshot.val();
+        if (data) {
+          Object.keys(data).forEach(key => motoristas.push({ idDoc: key, ...data[key] }));
+        } else {
+          motoristasPadrao.forEach(nome => db.ref("motoristas").push({ nome }));
+        }
+        atualizarSelectsMotoristas();
+        renderTabelaGerenciarMotoristas();
+      });
+    }
+
+    function atualizarSelectsMotoristas() {
+      generateInputRows();
+
+      const selAdmin = document.getElementById('filterMotoristaAdmin');
+      const selDriver = document.getElementById('filterMotoristaDriver');
+      const selEdit = document.getElementById('editMotorista');
+
+      const valAdmin = selAdmin.value;
+      const valDriver = selDriver.value;
+      const valEdit = selEdit.value;
+
+      selAdmin.innerHTML = '<option value="">Todos os Motoristas</option>';
+      selDriver.innerHTML = '<option value="">Todos os Motoristas</option>';
+      selEdit.innerHTML = '';
+
+      motoristas.forEach(m => {
+        selAdmin.innerHTML += `<option value="${m.nome}">${m.nome}</option>`;
+        selDriver.innerHTML += `<option value="${m.nome}">${m.nome}</option>`;
+        selEdit.innerHTML += `<option value="${m.nome}">${m.nome}</option>`;
+      });
+
+      if (valAdmin) selAdmin.value = valAdmin;
+      if (valDriver) selDriver.value = valDriver;
+      if (valEdit) selEdit.value = valEdit;
+    }
+
+    function escutarMaloteNuvem() {
+      db.ref("malote_tasks").on("value", snapshot => {
+        tasks = [];
+        const data = snapshot.val();
+        if (data) {
+          Object.keys(data).forEach(key => tasks.push({ idDoc: key, ...data[key] }));
+        }
+        refreshCurrentMaloteView();
+      });
+    }
+
+    function switchMaloteView(view) {
+      if (perfilAtual === 'motorista' && view !== 'motorista') return;
+
+      currentMaloteView = view;
+      document.getElementById('btnNavAdmin').classList.toggle('active', view === 'admin');
+      document.getElementById('btnNavDriver').classList.toggle('active', view === 'motorista');
+      document.getElementById('btnNavMotoristas').classList.toggle('active', view === 'gerenciar-motoristas');
+      
+      document.getElementById('adminView').style.display = view === 'admin' ? 'block' : 'none';
+      document.getElementById('driverView').style.display = view === 'motorista' ? 'block' : 'none';
+      document.getElementById('motoristasView').style.display = view === 'gerenciar-motoristas' ? 'block' : 'none';
+
+      if (document.getElementById('sys-malote').classList.contains('active')) {
+        document.querySelectorAll('.mobile-header button').forEach(b => b.classList.remove('active'));
+        if (view === 'admin') document.getElementById('m-btn-malote-admin').classList.add('active');
+        else if (view === 'motorista') document.getElementById('m-btn-malote-driver').classList.add('active');
+      }
+
+      refreshCurrentMaloteView();
+    }
+
+    function switchAdminTab(tab) {
+      adminTab = tab;
+      document.getElementById('tabAdminPendentes').classList.toggle('active', tab === 'pendentes');
+      document.getElementById('tabAdminHistorico').classList.toggle('active', tab === 'historico');
+      renderAdminTasks();
+    }
+
+    function generateInputRows() {
+      const container = document.getElementById('rowsContainer');
+      container.innerHTML = '';
+
+      let optionsMotoristas = '<option value="">Motorista...</option>';
+      motoristas.forEach(m => {
+        optionsMotoristas += `<option value="${m.nome}">${m.nome}</option>`;
+      });
+
+      const hoje = new Date().toISOString().split('T')[0];
+
+      for (let i = 0; i < 5; i++) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input type="date" class="row-data" min="${hoje}"></td>
+          <td>
+            <select class="row-periodo">
+              <option value="Manhã">Manhã</option>
+              <option value="Tarde">Tarde</option>
+              <option value="Noite">Noite</option>
+            </select>
+          </td>
+          <td><input type="time" class="row-horario"></td>
+          <td><input type="text" class="row-atividade" placeholder="Atividade/Destino"></td>
+          <td>
+            <select class="row-motorista">
+              ${optionsMotoristas}
+            </select>
+          </td>
+        `;
+        container.appendChild(tr);
+      }
+    }
+
+    /* INCLUIR E EXCLUIR MOTORISTAS */
+    document.getElementById('form-add-motorista').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nome = document.getElementById('novo-nome-motorista').value.trim();
+      if (!nome) return;
+
+      const jaExiste = motoristas.some(m => m.nome.toLowerCase() === nome.toLowerCase());
+      if (jaExiste) {
+        alert("Este motorista já está cadastrado!");
+        return;
+      }
+
+      await db.ref("motoristas").push({ nome });
+      alert("Motorista cadastrado com sucesso!");
+      document.getElementById('novo-nome-motorista').value = '';
+    });
+
+    async function excluirMotorista(idDoc) {
+      const mot = motoristas.find(m => m.idDoc === idDoc);
+      if (!mot) return;
+
+      const temTarefaPendente = tasks.some(t => t.motorista === mot.nome && (t.status === 'Pendente' || t.status === 'Devolvido'));
+      if (temTarefaPendente) {
+        alert(`Não é possível excluir o motorista ${mot.nome} pois existem atividades PENDENTES ou DEVOLVIDAS atribuídas a ele.`);
+        return;
+      }
+
+      if (!confirm(`Deseja realmente excluir o motorista "${mot.nome}"?`)) return;
+
+      await db.ref("motoristas/" + idDoc).remove();
+      alert("Motorista excluído com sucesso!");
+    }
+
+    function renderTabelaGerenciarMotoristas() {
+      const tbody = document.getElementById('table-motoristas-body');
+      tbody.innerHTML = motoristas.length === 0 ? '<tr><td colspan="2" style="text-align:center;">Nenhum motorista cadastrado.</td></tr>' : '';
+
+      motoristas.forEach(m => {
+        tbody.innerHTML += `
+          <tr>
+            <td><b>${m.nome}</b></td>
+            <td>
+              <button class="btn-fail" onclick="excluirMotorista('${m.idDoc}')">Excluir</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function renderAdminTasks() {
+      const tbody = document.getElementById('adminTableBody');
+      tbody.innerHTML = '';
+      const filterData = document.getElementById('filterDataAdmin').value;
+      const filterMotorista = document.getElementById('filterMotoristaAdmin').value;
+
+      const filtered = tasks.filter(task => {
+        const matchesTab = adminTab === 'pendentes' 
+          ? (task.status === 'Pendente' || task.status === 'Devolvido' || task.status === 'Não Concluído')
+          : (task.status === 'Concluído');
+
+        const matchesData = !filterData || task.data === filterData;
+        const matchesMotorista = !filterMotorista || task.motorista === filterMotorista;
+        return matchesTab && matchesData && matchesMotorista;
+      });
+
+      if (adminTab === 'historico') {
+        filtered.sort((a, b) => parseDateTime(b.data, b.horario) - parseDateTime(a.data, a.horario));
+      } else {
+        filtered.sort((a, b) => parseDateTime(a.data, a.horario) - parseDateTime(b.data, b.horario));
+      }
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">Nenhuma atividade em "${adminTab === 'pendentes' ? 'Pendentes / Para Reagendar' : 'Histórico'}".</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(task => {
+        let badgeClass = 'badge-pendente';
+        if (task.status === 'Devolvido' || task.status === 'Não Concluído') badgeClass = 'badge-devolvido';
+        if (task.status === 'Concluído') badgeClass = 'badge-concluido';
+
+        let obsTexto = task.observacao || '-';
+        if (task.status === 'Devolvido' || task.status === 'Não Concluído' || task.motivoNaoConclusao) {
+          obsTexto = `<strong style="color: #dc2626;">Motivo: ${task.motivoNaoConclusao || task.observacao}</strong>`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${formatarDataBR(task.data)}</td>
+          <td>${task.periodo} (${task.horario})</td>
+          <td><b>${task.atividade}</b></td>
+          <td>${task.motorista}</td>
+          <td><span class="badge ${badgeClass}">${task.status === 'Devolvido' || task.status === 'Não Concluído' ? '⚠️ Reagendar' : task.status}</span></td>
+          <td>${obsTexto}</td>
+          <td>
+            ${adminTab === 'pendentes' ? `
+              <button class="btn-edit" onclick="openEditModal('${task.idDoc}')">Reagendar / Editar</button>
+              <button class="btn-done" onclick="markCompleted('${task.idDoc}')">Concluir</button>
+            ` : '-'}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderDriverTasks() {
+      const container = document.getElementById('driverCardsList');
+      container.innerHTML = '';
+      const filterData = document.getElementById('filterDataDriver').value;
+      const filterMotorista = document.getElementById('filterMotoristaDriver').value;
+
+      const filtered = tasks.filter(task => {
+        return task.status === 'Pendente' && (!filterData || task.data === filterData) && (!filterMotorista || task.motorista === filterMotorista);
+      });
+
+      filtered.sort((a, b) => {
+        const timeA = parseDateTime(a.data, a.horario);
+        const timeB = parseDateTime(b.data, b.horario);
+        return timeA - timeB;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="card" style="text-align:center; color:#64748b;">Nenhuma atividade pendente.</div>';
+        return;
+      }
+
+      filtered.forEach(task => {
+        const card = document.createElement('div');
+        card.className = 'driver-task-card';
+        card.innerHTML = `
+          <div class="driver-task-header">${task.atividade}</div>
+          <div class="driver-task-detail">📅 <b>Data:</b> ${formatarDataBR(task.data)}</div>
+          <div class="driver-task-detail">⏰ <b>Horário:</b> ${task.periodo} às ${task.horario}</div>
+          <div class="driver-task-detail">👤 <b>Motorista:</b> ${task.motorista}</div>
+          <div class="driver-task-actions">
+            <button class="btn-done" onclick="markCompleted('${task.idDoc}')">✓ Concluir</button>
+            <button class="btn-fail" onclick="openFailModal('${task.idDoc}')">✕ Não Concluir</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    document.getElementById('multiTaskForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const rows = document.querySelectorAll('#rowsContainer tr');
+      const novastarefas = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const data = row.querySelector('.row-data').value;
+        const periodo = row.querySelector('.row-periodo').value;
+        const horario = row.querySelector('.row-horario').value || '00:00';
+        const atividade = row.querySelector('.row-atividade').value.trim();
+        const motorista = row.querySelector('.row-motorista').value;
+
+        if (atividade || motorista || data) {
+          if (!data || !atividade || !motorista) {
+            alert(`Por favor, preencha todos os campos obrigatórios na linha ${i + 1} (Data, Atividade e Motorista).`);
+            return;
+          }
+
+          if (!validarDataHoraFutura(data, horario)) {
+            alert(`DATA/HORA INVÁLIDA na linha ${i + 1}!\n\nNão é possível cadastrar uma atividade em uma data ou horário retroativo (${formatarDataBR(data)} às ${horario}).`);
+            return;
+          }
+
+          const duplicadoNoForm = novastarefas.find(t => 
+            t.motorista === motorista && t.data === data && t.horario === horario
+          );
+
+          if (duplicadoNoForm) {
+            alert(`CONFLITO NO CADASTRO!\n\nVocê está tentando cadastrar duas atividades para o mesmo motorista (${motorista}) na mesma data (${formatarDataBR(data)}) e horário (${horario}).`);
+            return;
+          }
+
+          const conflitoExistente = tasks.find(t => 
+            (t.status === 'Pendente' || t.status === 'Devolvido') && t.motorista === motorista && t.data === data && t.horario === horario
+          );
+
+          if (conflitoExistente) {
+            alert(`CONFLITO DE AGENDAMENTO!\n\nO motorista ${motorista} já possui a atividade "${conflitoExistente.atividade}" agendada para ${formatarDataBR(data)} às ${horario}.`);
+            return;
+          }
+
+          novastarefas.push({ data, periodo, horario, atividade, motorista, status: 'Pendente', observacao: '-', motivoNaoConclusao: '' });
+        }
+      }
+
+      if (novastarefas.length === 0) {
+        alert('Preencha ao menos uma linha com Data, Atividade e Motorista.');
+        return;
+      }
+
+      for (const task of novastarefas) {
+        await db.ref("malote_tasks").push(task);
+      }
+
+      generateInputRows();
+      alert(`${novastarefas.length} atividade(s) cadastrada(s) com sucesso!`);
+    });
+
+    function openEditModal(idDoc) {
+      currentEditId = idDoc;
+      const task = tasks.find(t => t.idDoc === idDoc);
+      if (task) {
+        const hoje = new Date().toISOString().split('T')[0];
+        const inputData = document.getElementById('editData');
+        inputData.min = hoje;
+        inputData.value = task.data;
+
+        document.getElementById('editPeriodo').value = task.periodo;
+        document.getElementById('editHorario').value = task.horario;
+        document.getElementById('editAtividade').value = task.atividade;
+        document.getElementById('editMotorista').value = task.motorista;
+        document.getElementById('editModal').style.display = 'flex';
+      }
+    }
+
+    function closeEditModal() { document.getElementById('editModal').style.display = 'none'; }
+
+    async function saveEditTask() {
+      const data = document.getElementById('editData').value;
+      const periodo = document.getElementById('editPeriodo').value;
+      const horario = document.getElementById('editHorario').value || '00:00';
+      const atividade = document.getElementById('editAtividade').value.trim();
+      const motorista = document.getElementById('editMotorista').value;
+
+      if (!data || !atividade || !motorista) {
+        alert('Preencha todos os campos obrigatórios.');
+        return;
+      }
+
+      if (!validarDataHoraFutura(data, horario)) {
+        alert("A data e o horário selecionados já passaram! Selecione uma data/horário futuro.");
+        return;
+      }
+
+      const conflito = tasks.find(t => 
+        t.idDoc !== currentEditId &&
+        (t.status === 'Pendente' || t.status === 'Devolvido') &&
+        t.motorista === motorista &&
+        t.data === data &&
+        t.horario === horario
+      );
+
+      if (conflito) {
+        alert(`CONFLITO DE AGENDAMENTO!\n\nO motorista ${motorista} já possui a atividade "${conflito.atividade}" agendada para ${formatarDataBR(data)} às ${horario}.`);
+        return;
+      }
+
+      const updatedData = { 
+        data, 
+        periodo, 
+        horario, 
+        atividade, 
+        motorista, 
+        status: 'Pendente', 
+        observacao: '-', 
+        motivoNaoConclusao: '' 
+      };
+
+      await db.ref("malote_tasks/" + currentEditId).update(updatedData);
+      closeEditModal();
+      alert("Atividade reagendada com sucesso! Ela reaparecerá no painel do motorista.");
+    }
+
+    async function markCompleted(idDoc) {
+      await db.ref("malote_tasks/" + idDoc).update({ status: 'Concluído', observacao: 'Concluído', motivoNaoConclusao: '' });
+      alert("Atividade concluída e movida para o histórico!");
+    }
+
+    function openFailModal(idDoc) {
+      currentEditId = idDoc;
+      document.getElementById('modalObs').value = '';
+      document.getElementById('failModal').style.display = 'flex';
+    }
+
+    function closeFailModal() { document.getElementById('failModal').style.display = 'none'; }
+
+    async function confirmNotCompleted() {
+      const obs = document.getElementById('modalObs').value.trim();
+      if (!obs) return alert('É obrigatório informar o motivo!');
+
+      await db.ref("malote_tasks/" + currentEditId).update({ 
+        status: 'Devolvido', 
+        motivoNaoConclusao: obs,
+        observacao: 'Devolvido/Não Concluído: ' + obs
+      });
+
+      if (perfilAtual === 'motorista') {
+        alert("Atividade devolvida ao Admin para reagendamento.");
+      } else {
+        alert("Atividade marcada para Reagendamento.");
+      }
+
+      closeFailModal();
+    }
+
+    function refreshCurrentMaloteView() {
+      if (currentMaloteView === 'admin') renderAdminTasks();
+      if (currentMaloteView === 'motorista') renderDriverTasks();
+      if (currentMaloteView === 'gerenciar-motoristas') renderTabelaGerenciarMotoristas();
+    }
+
+    function clearFiltersAdmin() {
+      document.getElementById('filterDataAdmin').value = '';
+      document.getElementById('filterMotoristaAdmin').value = '';
+      renderAdminTasks();
+    }
+
+    function clearFiltersDriver() {
+      document.getElementById('filterDataDriver').value = '';
+      document.getElementById('filterMotoristaDriver').value = '';
+      renderDriverTasks();
+    }
+
+    /* SCRIPT VEÍCULOS & RESERVAS */
+    let veiculos = [];
+    let reservasAtivas = [];
+    let historicoReservas = [];
+
+    const veiculosPadrao = [
+      { modelo: "GOL", placa: "BBN-4072", maxPassageiros: 5 },
+      { modelo: "GOL", placa: "BCD-3903", maxPassageiros: 5 },
+      { modelo: "GOL", placa: "BEY-8I42", maxPassageiros: 5 },
+      { modelo: "POLO", placa: "UCC-7C88", maxPassageiros: 5 },
+      { modelo: "STRADA", placa: "SDR-9F60", maxPassageiros: 2 },
+      { modelo: "STRADA", placa: "SEQ-4A96", maxPassageiros: 2 }
+    ];
+
+    function escutarVeiculosNouvem() {
+      db.ref("veiculos").on("value", snapshot => {
+        veiculos = [];
+        const data = snapshot.val();
+        if (data) {
+          Object.keys(data).forEach(key => veiculos.push({ idDoc: key, ...data[key] }));
+        } else {
+          veiculosPadrao.forEach(v => db.ref("veiculos").push(v));
+        }
+        renderizarCardsVeiculos();
+        renderTabelaGerenciarVeiculos();
+        atualizarSelectsFiltrosVeiculos();
+        aoSelecionarVeiculo();
+      });
+
+      db.ref("reservas").on("value", snapshot => {
+        reservasAtivas = [];
+        historicoReservas = [];
+        const data = snapshot.val();
+        if (data) {
+          Object.keys(data).forEach(key => {
+            const item = { idDoc: key, ...data[key] };
+            if (item.status === "Ativa") reservasAtivas.push(item);
+            else historicoReservas.push(item);
+          });
+        }
+        verificarReservasExpiradas();
+        renderizarCardsVeiculos();
+        renderTabelasVeiculos();
+        aoSelecionarVeiculo();
+      });
+    }
+
+    function atualizarSelectsFiltrosVeiculos() {
+      const selAtivas = document.getElementById('filterVeiculoAtivas');
+      const selHist = document.getElementById('filterVeiculoHist');
+
+      const valAtivas = selAtivas.value;
+      const valHist = selHist.value;
+
+      selAtivas.innerHTML = '<option value="">Todos os Veículos</option>';
+      selHist.innerHTML = '<option value="">Todos os Veículos</option>';
+
+      veiculos.forEach(v => {
+        const option = `<option value="${v.idDoc}">${v.modelo} - ${v.placa}</option>`;
+        selAtivas.innerHTML += option;
+        selHist.innerHTML += option;
+      });
+
+      if (valAtivas) selAtivas.value = valAtivas;
+      if (valHist) selHist.value = valHist;
+    }
+
+    function clearFiltersVeiculosAtivas() {
+      document.getElementById('filterVeiculoAtivas').value = '';
+      document.getElementById('filterCondutorAtivas').value = '';
+      document.getElementById('filterDataInicioAtivas').value = '';
+      document.getElementById('filterDataFimAtivas').value = '';
+      renderTabelasVeiculos();
+    }
+
+    function clearFiltersVeiculosHist() {
+      document.getElementById('filterVeiculoHist').value = '';
+      document.getElementById('filterCondutorHist').value = '';
+      document.getElementById('filterDataInicioHist').value = '';
+      document.getElementById('filterDataFimHist').value = '';
+      renderTabelasVeiculos();
+    }
+
+    function verificarReservasExpiradas() {
+      const agora = new Date().getTime();
+      reservasAtivas.forEach(r => {
+        if (r.dataFim && r.horaFim) {
+          const fimReserva = parseDateTime(r.dataFim, r.horaFim);
+          if (!isNaN(fimReserva) && agora > (fimReserva + 60000)) {
+            db.ref("reservas/" + r.idDoc).update({ status: "Concluída" });
+          }
+        }
+      });
+    }
+
+    /* GERENCIAMENTO DE VEÍCULOS */
+    document.getElementById('form-add-veiculo').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const modelo = document.getElementById('novo-modelo').value.trim().toUpperCase();
+      const placa = document.getElementById('nova-placa').value.trim().toUpperCase();
+      const maxPassageiros = parseInt(document.getElementById('novo-max-pass').value) || 5;
+
+      await db.ref("veiculos").push({ modelo, placa, maxPassageiros });
+      alert("Veículo cadastrado com sucesso!");
+      document.getElementById('form-add-veiculo').reset();
+    });
+
+    async function excluirVeiculo(idDoc) {
+      const v = veiculos.find(item => item.idDoc === idDoc);
+      if (!v) return;
+
+      const temReservaAtiva = reservasAtivas.some(r => r.veiculoId === idDoc);
+      if (temReservaAtiva) {
+        alert("Não é possível excluir este veículo pois existem reservas ativas vinculadas a ele!");
+        return;
+      }
+
+      if (!confirm(`Deseja realmente excluir o veículo ${v.modelo} (${v.placa})?`)) return;
+
+      await db.ref("veiculos/" + idDoc).remove();
+      alert("Veículo excluído com sucesso!");
+    }
+
+    function renderTabelaGerenciarVeiculos() {
+      const tbody = document.getElementById('table-veiculos-body');
+      tbody.innerHTML = veiculos.length === 0 ? '<tr><td colspan="4" style="text-align:center;">Nenhum veículo cadastrado.</td></tr>' : '';
+
+      veiculos.forEach(v => {
+        tbody.innerHTML += `
+          <tr>
+            <td><b>${v.modelo}</b></td>
+            <td><span class="vehicle-plate">${v.placa}</span></td>
+            <td>${v.maxPassageiros} pess.</td>
+            <td>
+              <button class="btn-fail" onclick="excluirVeiculo('${v.idDoc}')">Excluir</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function renderizarCardsVeiculos() {
+      const container = document.getElementById('vehicles-header');
+      const select = document.getElementById('select-veiculo');
+      const selectedVal = select.value;
+      
+      container.innerHTML = '';
+      select.innerHTML = '<option value="">Selecione um veículo</option>';
+
+      const agora = new Date().getTime();
+
+      veiculos.forEach(v => {
+        const reservasDoVeiculo = reservasAtivas.filter(r => r.veiculoId === v.idDoc);
+        
+        let emUsoAgora = false;
+        let possuiReservasFuturas = false;
+
+        reservasDoVeiculo.forEach(r => {
+          const ini = parseDateTime(r.dataInicio, r.horaInicio);
+          const fim = parseDateTime(r.dataFim, r.horaFim);
+
+          if (!isNaN(ini) && !isNaN(fim)) {
+            if (agora >= ini && agora <= fim) {
+              emUsoAgora = true;
+            } else if (fim > agora) {
+              possuiReservasFuturas = true;
+            }
+          }
+        });
+
+        let cardClass = "";
+        let tagHtml = "";
+
+        if (emUsoAgora) {
+          cardClass = "status-in-use";
+          tagHtml = `<span class="status-tag tag-in-use">🔴 Em Uso Agora</span>`;
+        } else if (possuiReservasFuturas) {
+          cardClass = "status-reserved";
+          tagHtml = `<span class="status-tag tag-reserved">🟡 Reservado</span>`;
+        } else {
+          tagHtml = `<span class="status-tag tag-free">⚪ Livre</span>`;
+        }
+
+        container.innerHTML += `
+          <div class="vehicle-card ${cardClass}" id="card-v-${v.idDoc}" onclick="selecionarPorCard('${v.idDoc}')">
+            <div style="font-size:0.8rem; font-weight:700;">${v.modelo}</div>
+            <div class="vehicle-plate">${v.placa}</div>
+            ${tagHtml}
+          </div>
+        `;
+
+        select.innerHTML += `<option value="${v.idDoc}">${v.modelo} - ${v.placa}</option>`;
+      });
+
+      if (selectedVal) select.value = selectedVal;
+    }
+
+    function selecionarPorCard(idDoc) {
+      if (perfilAtual === 'atendimento') return;
+      document.getElementById('select-veiculo').value = idDoc;
+      aoSelecionarVeiculo();
+    }
+
+    function aoSelecionarVeiculo() {
+      const idDoc = document.getElementById('select-veiculo').value;
+      const reservaEditandoId = document.getElementById('reserva-id').value;
+      document.querySelectorAll('.vehicle-card').forEach(c => c.classList.remove('selected'));
+      
+      const infoBox = document.getElementById('vehicle-schedule-info');
+
+      if (!idDoc) {
+        infoBox.style.display = 'none';
+        infoBox.innerHTML = '';
+        return;
+      }
+
+      document.getElementById(`card-v-${idDoc}`)?.classList.add('selected');
+
+      const reservasDoVeiculo = reservasAtivas.filter(r => r.veiculoId === idDoc && r.idDoc !== reservaEditandoId);
+
+      reservasDoVeiculo.sort((a, b) => {
+        const timeA = parseDateTime(a.dataInicio, a.horaInicio);
+        const timeB = parseDateTime(b.dataInicio, b.horaInicio);
+        return timeA - timeB;
+      });
+
+      if (reservasDoVeiculo.length === 0) {
+        infoBox.style.display = 'block';
+        infoBox.style.background = '#f0fdf4';
+        infoBox.style.borderColor = '#bbf7d0';
+        infoBox.style.color = '#166534';
+        infoBox.innerHTML = '✔ <b>Veículo totalmente livre</b> sem nenhuma reserva pendente.';
+      } else {
+        infoBox.style.display = 'block';
+        infoBox.style.background = '#fffbe0';
+        infoBox.style.borderColor = '#fef08a';
+        infoBox.style.color = '#713f12';
+
+        let listaHtml = '⚠️ <b>Reservas já cadastradas para este veículo:</b><ul>';
+        reservasDoVeiculo.forEach(r => {
+          listaHtml += `<li><b>${formatarDataBR(r.dataInicio)} às ${r.horaInicio}</b> até <b>${formatarDataBR(r.dataFim)} às ${r.horaFim}</b> — (${r.condutor})</li>`;
+        });
+        listaHtml += '</ul>';
+        infoBox.innerHTML = listaHtml;
+      }
+    }
+
+    function openVeiculosTab(tabId, event) {
+      if (perfilAtual === 'atendimento' && tabId !== 'reservas-ativas') return;
+
+      document.querySelectorAll('#sys-veiculos .tab-content').forEach(c => c.style.display = 'none');
+      document.querySelectorAll('#sys-veiculos .tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).style.display = 'block';
+      if (event) event.currentTarget.classList.add('active');
+    }
+
+    function renderTabelasVeiculos() {
+      const tbodyAtivas = document.getElementById('table-ativas-body');
+      const tbodyHist = document.getElementById('table-historico-body');
+
+      const isAtendimento = perfilAtual === 'atendimento';
+      
+      document.querySelectorAll('.th-acoes-veiculos').forEach(th => {
+        th.style.display = isAtendimento ? 'none' : 'table-cell';
+      });
+
+      // Filtros de Ativas
+      const fVeiculoAtivas = document.getElementById('filterVeiculoAtivas').value;
+      const fCondutorAtivas = document.getElementById('filterCondutorAtivas').value.toLowerCase().trim();
+      const fDataInicioAtivas = document.getElementById('filterDataInicioAtivas').value;
+      const fDataFimAtivas = document.getElementById('filterDataFimAtivas').value;
+
+      const ativasFiltradas = reservasAtivas.filter(r => {
+        const matchVeiculo = !fVeiculoAtivas || r.veiculoId === fVeiculoAtivas;
+        const matchCondutor = !fCondutorAtivas || (r.condutor && r.condutor.toLowerCase().includes(fCondutorAtivas));
+
+        let matchPeriodo = true;
+        if (fDataInicioAtivas && fDataFimAtivas) {
+          matchPeriodo = (r.dataInicio <= fDataFimAtivas) && (r.dataFim >= fDataInicioAtivas);
+        } else if (fDataInicioAtivas) {
+          matchPeriodo = r.dataFim >= fDataInicioAtivas;
+        } else if (fDataFimAtivas) {
+          matchPeriodo = r.dataInicio <= fDataFimAtivas;
+        }
+
+        return matchVeiculo && matchCondutor && matchPeriodo;
+      });
+
+      ativasFiltradas.sort((a, b) => {
+        const timeA = parseDateTime(a.dataInicio, a.horaInicio);
+        const timeB = parseDateTime(b.dataInicio, b.horaInicio);
+        return timeA - timeB;
+      });
+
+      // Filtros de Histórico
+      const fVeiculoHist = document.getElementById('filterVeiculoHist').value;
+      const fCondutorHist = document.getElementById('filterCondutorHist').value.toLowerCase().trim();
+      const fDataInicioHist = document.getElementById('filterDataInicioHist').value;
+      const fDataFimHist = document.getElementById('filterDataFimHist').value;
+
+      const historicoFiltrado = historicoReservas.filter(r => {
+        const matchVeiculo = !fVeiculoHist || r.veiculoId === fVeiculoHist;
+        const matchCondutor = !fCondutorHist || (r.condutor && r.condutor.toLowerCase().includes(fCondutorHist));
+
+        let matchPeriodo = true;
+        if (fDataInicioHist && fDataFimHist) {
+          matchPeriodo = (r.dataInicio <= fDataFimHist) && (r.dataFim >= fDataInicioHist);
+        } else if (fDataInicioHist) {
+          matchPeriodo = r.dataFim >= fDataInicioHist;
+        } else if (fDataFimHist) {
+          matchPeriodo = r.dataInicio <= fDataFimHist;
+        }
+
+        return matchVeiculo && matchCondutor && matchPeriodo;
+      });
+
+      historicoFiltrado.sort((a, b) => {
+        const timeA = parseDateTime(a.dataInicio, a.horaInicio);
+        const timeB = parseDateTime(b.dataInicio, b.horaInicio);
+        return timeB - timeA;
+      });
+
+      tbodyAtivas.innerHTML = ativasFiltradas.length === 0 ? `<tr><td colspan="${isAtendimento ? 5 : 6}" style="text-align:center;">Nenhuma reserva ativa encontrada.</td></tr>` : '';
+      tbodyHist.innerHTML = historicoFiltrado.length === 0 ? '<tr><td colspan="5" style="text-align:center;">Nenhum histórico encontrado.</td></tr>' : '';
+
+      ativasFiltradas.forEach(r => {
+        const v = veiculos.find(item => item.idDoc === r.veiculoId);
+        tbodyAtivas.innerHTML += `
+          <tr>
+            <td><b>${v ? v.modelo + ' (' + v.placa + ')' : 'Veículo'}</b></td>
+            <td>${r.condutor} (${r.passageiros} pass.)</td>
+            <td>${r.destino} (${r.motivo})</td>
+            <td>${formatarDataBR(r.dataInicio)} ${r.horaInicio}</td>
+            <td>${formatarDataBR(r.dataFim)} ${r.horaFim}</td>
+            ${!isAtendimento ? `
+            <td>
+              <button class="btn-edit" onclick="editarReservaAtiva('${r.idDoc}')">Editar</button>
+              <button class="btn-done" onclick="finalizarReserva('${r.idDoc}')">Devolver</button>
+              <button class="btn-fail" onclick="cancelarReserva('${r.idDoc}')">Cancelar</button>
+            </td>
+            ` : ''}
+          </tr>
+        `;
+      });
+
+      historicoFiltrado.forEach(r => {
+        const v = veiculos.find(item => item.idDoc === r.veiculoId);
+        tbodyHist.innerHTML += `
+          <tr>
+            <td>${v ? v.modelo + ' (' + v.placa + ')' : 'Veículo'}</td>
+            <td>${r.condutor}</td>
+            <td>${r.destino}</td>
+            <td>${formatarDataBR(r.dataInicio)} ${r.horaInicio} à ${formatarDataBR(r.dataFim)} ${r.horaFim}</td>
+            <td><span class="badge ${r.status === 'Cancelada' ? 'badge-nao-concluido' : 'badge-concluido'}">${r.status}</span></td>
+          </tr>
+        `;
+      });
+    }
+
+    function editarReservaAtiva(idDoc) {
+      if (perfilAtual === 'atendimento') return;
+      const r = reservasAtivas.find(item => item.idDoc === idDoc);
+      if (!r) return;
+
+      document.getElementById('reserva-id').value = r.idDoc;
+      document.getElementById('select-veiculo').value = r.veiculoId;
+      document.getElementById('condutor').value = r.condutor;
+      document.getElementById('passageiros').value = r.passageiros;
+      document.getElementById('destino').value = r.destino;
+      document.getElementById('motivo').value = r.motivo;
+      document.getElementById('data-inicio').value = r.dataInicio;
+      document.getElementById('hora-inicio').value = r.horaInicio;
+      document.getElementById('data-fim').value = r.dataFim;
+      document.getElementById('hora-fim').value = r.horaFim;
+
+      document.getElementById('btn-salvar').innerText = "Salvar Alterações";
+      document.getElementById('btn-cancelar-edicao').style.display = "inline-block";
+
+      openVeiculosTab('nova-reserva');
+      aoSelecionarVeiculo();
+    }
+
+    document.getElementById('form-reserva').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (perfilAtual === 'atendimento') return;
+
+      const reservaId = document.getElementById('reserva-id').value;
+      const veiculoId = document.getElementById('select-veiculo').value;
+      const dataInicio = document.getElementById('data-inicio').value;
+      const horaInicio = document.getElementById('hora-inicio').value;
+      const dataFim = document.getElementById('data-fim').value;
+      const horaFim = document.getElementById('hora-fim').value;
+
+      const inicioNovo = parseDateTime(dataInicio, horaInicio);
+      const fimNovo = parseDateTime(dataFim, horaFim);
+
+      if (isNaN(inicioNovo) || isNaN(fimNovo)) {
+        alert("Por favor, preencha a data e o horário corretamente.");
+        return;
+      }
+
+      if (fimNovo <= inicioNovo) {
+        alert("A data/hora final deve ser posterior à data/hora inicial.");
+        return;
+      }
+
+      if (fimNovo < new Date().getTime()) {
+        alert("Não é possível criar uma reserva para uma data/hora que já passou.");
+        return;
+      }
+
+      const conflito = reservasAtivas.find(r => {
+        if (r.veiculoId !== veiculoId) return false;
+        if (reservaId && r.idDoc === reservaId) return false;
+
+        const inicioExistente = parseDateTime(r.dataInicio, r.horaInicio);
+        const fimExistente = parseDateTime(r.dataFim, r.horaFim);
+
+        return (inicioNovo < fimExistente && fimNovo > inicioExistente);
+      });
+
+      if (conflito) {
+        const v = veiculos.find(item => item.idDoc === veiculoId);
+        alert(`CONFLITO DE HORÁRIO!\n\nEste veículo (${v ? v.modelo + ' - ' + v.placa : ''}) já está reservado entre:\n${formatarDataBR(conflito.dataInicio)} às ${conflito.horaInicio} e ${formatarDataBR(conflito.dataFim)} às ${conflito.horaFim}\nCondutor: ${conflito.condutor}.\n\nPor favor, selecione outro veículo ou horário.`);
+        return;
+      }
+
+      const dados = {
+        veiculoId,
+        condutor: document.getElementById('condutor').value,
+        passageiros: document.getElementById('passageiros').value,
+        destino: document.getElementById('destino').value,
+        motivo: document.getElementById('motivo').value,
+        dataInicio,
+        horaInicio,
+        dataFim,
+        horaFim,
+        status: "Ativa"
+      };
+
+      if (reservaId) {
+        await db.ref("reservas/" + reservaId).update(dados);
+        alert("Reserva alterada com sucesso!");
+      } else {
+        await db.ref("reservas").push(dados);
+        alert("Reserva registrada com sucesso!");
+      }
+
+      limparFormulario();
+      openVeiculosTab('reservas-ativas');
+    });
+
+    function limparFormulario() {
+      document.getElementById('form-reserva').reset();
+      document.getElementById('reserva-id').value = '';
+      document.getElementById('btn-salvar').innerText = "Confirmar Reserva";
+      document.getElementById('btn-cancelar-edicao').style.display = "none";
+      document.querySelectorAll('.vehicle-card').forEach(c => c.classList.remove('selected'));
+      document.getElementById('vehicle-schedule-info').style.display = 'none';
+    }
+
+    async function finalizarReserva(idDoc) {
+      if (perfilAtual === 'atendimento') return;
+      if (!confirm("Deseja confirmar a devolução deste veículo?")) return;
+      await db.ref("reservas/" + idDoc).update({ status: "Concluída" });
+      alert("Reserva finalizada com sucesso!");
+    }
+
+    async function cancelarReserva(idDoc) {
+      if (perfilAtual === 'atendimento') return;
+      if (!confirm("Deseja realmente cancelar esta reserva?")) return;
+      await db.ref("reservas/" + idDoc).update({ status: "Cancelada" });
+      alert("Reserva cancelada!");
+    }
+
+    /* LIMPEZA DE HISTÓRICOS COM CONFIRMAÇÃO DE SENHA */
+    async function limparHistoricoVeiculosComSenha() {
+      if (historicoReservas.length === 0) {
+        alert("Não existem registros no histórico de veículos para excluir.");
+        return;
+      }
+
+      const pass = prompt("ATENÇÃO: Apenas o histórico (reservas concluídas/canceladas) será apagado. As reservas ativas serão mantidas.\n\nDigite a senha de Administrador para confirmar:");
+      if (pass === null) return;
+
+      if (pass !== senhaSistema) {
+        alert("Senha incorreta! Operação cancelada.");
+        return;
+      }
+
+      if (!confirm(`Confirma a exclusão permanente de ${historicoReservas.length} registro(s) do histórico de veículos?`)) return;
+
+      const updates = {};
+      historicoReservas.forEach(r => {
+        updates["reservas/" + r.idDoc] = null;
+      });
+
+      await db.ref().update(updates);
+      alert("Histórico de reservas de veículos apagado com sucesso!");
+    }
+
+    async function limparHistoricoMaloteComSenha() {
+      const historicoMalote = tasks.filter(t => t.status === 'Concluído');
+
+      if (historicoMalote.length === 0) {
+        alert("Não existem registros no histórico de malote para excluir.");
+        return;
+      }
+
+      const pass = prompt("ATENÇÃO: Apenas as atividades concluídas serão apagadas. Atividades pendentes e reagendamentos serão mantidos.\n\nDigite a senha de Administrador para confirmar:");
+      if (pass === null) return;
+
+      if (pass !== senhaSistema) {
+        alert("Senha incorreta! Operação cancelada.");
+        return;
+      }
+
+      if (!confirm(`Confirma a exclusão permanente de ${historicoMalote.length} atividade(s) do histórico do malote?`)) return;
+
+      const updates = {};
+      historicoMalote.forEach(t => {
+        updates["malote_tasks/" + t.idDoc] = null;
+      });
+
+      await db.ref().update(updates);
+      alert("Histórico do malote apagado com sucesso!");
+    }
+
+    /* ALTERAÇÃO DE SENHA DO ADMIN */
+    document.getElementById('form-alterar-senha').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const atual = document.getElementById('senha-atual').value;
+      const nova = document.getElementById('senha-nova').value;
+      const confirma = document.getElementById('senha-confirma').value;
+
+      if (atual !== senhaSistema) {
+        alert("A senha atual digitada está incorreta!");
+        return;
+      }
+
+      if (nova.length < 4) {
+        alert("A nova senha precisa ter pelo menos 4 caracteres.");
+        return;
+      }
+
+      if (nova !== confirma) {
+        alert("A confirmação da senha não confere!");
+        return;
+      }
+
+      await db.ref("configuracoes/senha").set(nova);
+      alert("Senha do Administrador alterada com sucesso!");
+      document.getElementById('form-alterar-senha').reset();
+    });
+
+    /* ALTERAÇÃO DE SENHA DO ATENDIMENTO */
+    document.getElementById('form-alterar-senha-atendimento').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nova = document.getElementById('senha-atendimento-nova').value;
+      const confirma = document.getElementById('senha-atendimento-confirma').value;
+
+      if (nova.length < 4) {
+        alert("A nova senha precisa ter pelo menos 4 caracteres.");
+        return;
+      }
+
+      if (nova !== confirma) {
+        alert("A confirmação da senha não confere!");
+        return;
+      }
+
+      await db.ref("configuracoes/senhaAtendimento").set(nova);
+      alert("Senha de Atendimento alterada com sucesso!");
+      document.getElementById('form-alterar-senha-atendimento').reset();
+    });
+
+    /* ALTERAÇÃO DE SENHA DO MOTORISTA */
+    document.getElementById('form-alterar-senha-motorista').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nova = document.getElementById('senha-motorista-nova').value;
+      const confirma = document.getElementById('senha-motorista-confirma').value;
+
+      if (nova.length < 4) {
+        alert("A nova senha precisa ter pelo menos 4 caracteres.");
+        return;
+      }
+
+      if (nova !== confirma) {
+        alert("A confirmação da senha não confere!");
+        return;
+      }
+
+      await db.ref("configuracoes/senhaMotorista").set(nova);
+      alert("Senha de Motorista alterada com sucesso!");
+      document.getElementById('form-alterar-senha-motorista').reset();
+    });
+
+    function aplicarDataMinima() {
+      const hoje = new Date().toISOString().split('T')[0];
+      document.getElementById('data-inicio').min = hoje;
+      document.getElementById('data-fim').min = hoje;
+    }
+
+    /* INICIALIZAÇÃO */
+    window.addEventListener('DOMContentLoaded', () => {
+      escutarSenhasNuvem();
+      escutarMotoristasNouvem();
+      escutarMaloteNuvem();
+      escutarVeiculosNouvem();
+      aplicarDataMinima();
+
+      setInterval(() => {
+        verificarReservasExpiradas();
+        renderizarCardsVeiculos();
+      }, 30000);
+    });
+  </script>
+
+<script src="../auth-guard.js"></script>
+</body>
+</html>

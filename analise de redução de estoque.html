@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Análise de Estoque</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --card-bg: #ffffff;
+      --primary: #2563eb;
+      --text: #1e293b;
+      --border: #e2e8f0;
+      --success: #16a34a;
+      --danger: #dc2626;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      background: var(--card-bg);
+      padding: 15px 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .file-upload label {
+      background-color: var(--primary);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      display: inline-block;
+    }
+
+    .file-upload input { display: none; }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .card:hover, .card.active {
+      border-color: var(--primary);
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      color: #64748b;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .card-value {
+      font-size: 1.4rem;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+    }
+
+    .tab-btn {
+      padding: 10px 20px;
+      background: #e2e8f0;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      color: #475569;
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    .search-input {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      width: 250px;
+      font-size: 0.9rem;
+    }
+
+    .table-container {
+      background: var(--card-bg);
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow-x: auto;
+      max-height: 600px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+
+    th {
+      background-color: #f8fafc;
+      color: #475569;
+      padding: 12px;
+      position: sticky;
+      top: 0;
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tr:hover {
+      background-color: #f1f5f9;
+    }
+
+    .text-red { color: var(--danger); }
+    .text-green { color: var(--success); }
+    .last-update { font-size: 0.85rem; color: #64748b; }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+<div class="container">
+  <div class="header-actions">
+    <div>
+      <h2 style="margin: 0;">Análise de Estoque</h2>
+      <span class="last-update" id="lastUpdate">Nenhum relatório carregado.</span>
+    </div>
+    <div class="file-upload">
+      <label for="fileInput">Importar Relatório (.xlsx)</label>
+      <input type="file" id="fileInput" accept=".xlsx, .xls">
+    </div>
+  </div>
+
+  <div class="cards-grid">
+    <div class="card active" onclick="setFilter('all')" id="card-all">
+      <div class="card-title">Total de Itens</div>
+      <div class="card-value" id="totalItens">0</div>
+    </div>
+    <div class="card" onclick="setFilter('valorTotal')" id="card-valorTotal">
+      <div class="card-title">Valor Total Atual</div>
+      <div class="card-value" id="valorTotal">R$ 0,00</div>
+    </div>
+    <div class="card" onclick="setFilter('reducao')" id="card-reducao">
+      <div class="card-title">Total Redução</div>
+      <div class="card-value text-red" id="totalReducao">R$ 0,00</div>
+    </div>
+    <div class="card" onclick="setFilter('aumento')" id="card-aumento">
+      <div class="card-title">Total Aumento</div>
+      <div class="card-value text-green" id="totalAumento">R$ 0,00</div>
+    </div>
+    <div class="card" onclick="setFilter('liquido')" id="card-liquido">
+      <div class="card-title">Resultado Líquido</div>
+      <div class="card-value" id="resultadoLiquido">R$ 0,00</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('analise')" id="tab-analise">Análise Geral</button>
+      <button class="tab-btn" onclick="switchTab('novos')" id="tab-novos">Novos Itens</button>
+      <button class="tab-btn" onclick="switchTab('antigos')" id="tab-antigos">Itens Antigos</button>
+    </div>
+    <input type="text" id="searchInput" class="search-input" placeholder="Buscar por código ou descrição..." oninput="renderTable()">
+  </div>
+
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Código (E)</th>
+          <th>Descrição (D)</th>
+          <th>Est. Mínimo (I)</th>
+          <th>Est. Máximo (H)</th>
+          <th>Est. Anterior</th>
+          <th>Est. Atual</th>
+          <th>Variação</th>
+          <th>Valor Unitário</th>
+          <th>Impacto Financeiro ▼</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr>
+          <td colspan="9" style="text-align: center; color: #64748b;">Nenhum dado para exibir. Faça o upload do relatório.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let rawData = { analise: [], novos: [], antigos: [] };
+  let currentTab = 'analise';
+  let currentFilter = 'all';
+
+  window.onload = () => {
+    const savedData = localStorage.getItem('estoque_analise_data');
+    const savedDate = localStorage.getItem('estoque_analise_date');
+    if (savedData) {
+      rawData = JSON.parse(savedData);
+      document.getElementById('lastUpdate').innerText = `Última atualização: ${savedDate}`;
+      renderView();
+    }
+  };
+
+  document.getElementById('fileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+
+      if (workbook.SheetNames.length < 2) {
+        alert("O arquivo precisa conter pelo menos 2 abas (Aba Matriz e Aba Nova)!");
+        return;
+      }
+
+      const sheetMatriz = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+      const sheetNova = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[1]], { header: 1 });
+
+      processReportData(sheetMatriz, sheetNova);
+
+      const now = new Date().toLocaleString('pt-BR');
+      localStorage.setItem('estoque_analise_data', JSON.stringify(rawData));
+      localStorage.setItem('estoque_analise_date', now);
+      document.getElementById('lastUpdate').innerText = `Última atualização: ${now}`;
+
+      renderView();
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  const num = (val) => parseFloat(val) || 0;
+  const colIndex = (letter) => letter.toUpperCase().charCodeAt(0) - 65;
+
+  function extractItemFromRow(row) {
+    if (!row || row.length < 5) return null;
+
+    const rawCodigo = row[colIndex('E')];
+    if (rawCodigo === undefined || rawCodigo === null || rawCodigo === '') return null;
+
+    const codigo = String(rawCodigo).trim();
+    if (!codigo || codigo.toLowerCase() === 'código' || codigo.toLowerCase() === 'codigo') return null;
+
+    const eMin = num(row[colIndex('I')]);
+    const eMax = num(row[colIndex('H')]);
+    const f = num(row[colIndex('F')]);
+    const g = num(row[colIndex('G')]);
+    const n = num(row[colIndex('N')]);
+    const o = num(row[colIndex('O')]);
+
+    const estCalculado = f - (n + o);
+    const vUnit = f !== 0 ? g / f : 0;
+
+    return {
+      codigo: codigo,
+      descricao: row[colIndex('D')] || '',
+      estMin: eMin,
+      estMax: eMax,
+      saldoF: f,
+      valorG: g,
+      estCalculado: estCalculado,
+      vUnit: vUnit
+    };
+  }
+
+  function processReportData(sheetMatriz, sheetNova) {
+    const mapMatriz = new Map();
+    const mapNova = new Map();
+
+    for (let i = 1; i < sheetMatriz.length; i++) {
+      const item = extractItemFromRow(sheetMatriz[i]);
+      if (item) mapMatriz.set(item.codigo, item);
+    }
+
+    for (let i = 1; i < sheetNova.length; i++) {
+      const item = extractItemFromRow(sheetNova[i]);
+      if (item) mapNova.set(item.codigo, item);
+    }
+
+    let analiseList = [];
+    let novosList = [];
+    let antigosList = [];
+
+    // 1. Processa Análise Geral
+    mapMatriz.forEach((matrizItem, codigo) => {
+      if (matrizItem.estMin > 0 || matrizItem.estMax > 0) {
+        const novaItem = mapNova.get(codigo);
+        
+        const estAnterior = matrizItem.estCalculado;
+        const estAtual = novaItem ? novaItem.estCalculado : 0;
+        const variacao = estAnterior - estAtual;
+        const vUnitario = matrizItem.vUnit;
+        const impactoFin = variacao * vUnitario;
+
+        analiseList.push({
+          codigo: matrizItem.codigo,
+          descricao: matrizItem.descricao,
+          estMin: matrizItem.estMin,
+          estMax: matrizItem.estMax,
+          estAnterior: estAnterior,
+          estAtual: estAtual,
+          variacao: variacao,
+          vUnitario: vUnitario,
+          impactoFin: impactoFin
+        });
+      }
+    });
+
+    // 2. Processa Novos Itens (Na Nova com Min/Max > 0, NÃO na Matriz E com Estoque Atual > 0)
+    mapNova.forEach((novaItem, codigo) => {
+      const minMaxValido = novaItem.estMin > 0 || novaItem.estMax > 0;
+      const naoExisteNaMatriz = !mapMatriz.has(codigo);
+      const temEstoqueAtual = novaItem.estCalculado > 0;
+
+      if (minMaxValido && naoExisteNaMatriz && temEstoqueAtual) {
+        novosList.push({
+          codigo: novaItem.codigo,
+          descricao: novaItem.descricao,
+          estMin: novaItem.estMin,
+          estMax: novaItem.estMax,
+          estAnterior: 0,
+          estAtual: novaItem.estCalculado,
+          variacao: 0 - novaItem.estCalculado,
+          vUnitario: novaItem.vUnit,
+          impactoFin: (0 - novaItem.estCalculado) * novaItem.vUnit
+        });
+      }
+    });
+
+    // 3. Processa Itens Antigos (Estavam na Matriz com Min/Max > 0, mas NÃO existem na Nova)
+    mapMatriz.forEach((matrizItem, codigo) => {
+      const minMaxValido = matrizItem.estMin > 0 || matrizItem.estMax > 0;
+      const naoExisteNaNova = !mapNova.has(codigo);
+
+      if (minMaxValido && naoExisteNaNova) {
+        const estAnterior = matrizItem.estCalculado;
+        const estAtual = 0; // Pois não consta mais na aba nova
+        const variacao = estAnterior - estAtual;
+        const vUnitario = matrizItem.vUnit;
+        const impactoFin = variacao * vUnitario;
+
+        antigosList.push({
+          codigo: matrizItem.codigo,
+          descricao: matrizItem.descricao,
+          estMin: matrizItem.estMin,
+          estMax: matrizItem.estMax,
+          estAnterior: estAnterior,
+          estAtual: estAtual,
+          variacao: variacao,
+          vUnitario: vUnitario,
+          impactoFin: impactoFin
+        });
+      }
+    });
+
+    // Ordenação Decrescente por Impacto Financeiro (Maior para o Menor)
+    const sortByImpact = (a, b) => b.impactoFin - a.impactoFin;
+    analiseList.sort(sortByImpact);
+    novosList.sort(sortByImpact);
+    antigosList.sort(sortByImpact);
+
+    rawData = { analise: analiseList, novos: novosList, antigos: antigosList };
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tab-analise').classList.toggle('active', tab === 'analise');
+    document.getElementById('tab-novos').classList.toggle('active', tab === 'novos');
+    document.getElementById('tab-antigos').classList.toggle('active', tab === 'antigos');
+    renderView();
+  }
+
+  function setFilter(filterType) {
+    currentFilter = filterType;
+    document.querySelectorAll('.card').forEach(card => card.classList.remove('active'));
+    document.getElementById(`card-${filterType}`).classList.add('active');
+    renderTable();
+  }
+
+  function renderView() {
+    calculateHeaderMetrics();
+    renderTable();
+  }
+
+  function calculateHeaderMetrics() {
+    const list = rawData[currentTab] || [];
+
+    let totalItens = list.length;
+    let valorTotal = 0;
+    let totalReducao = 0;
+    let totalAumento = 0;
+
+    list.forEach(item => {
+      valorTotal += (item.estAtual * item.vUnitario);
+      if (item.impactoFin > 0) {
+        totalReducao += item.impactoFin;
+      } else if (item.impactoFin < 0) {
+        totalAumento += Math.abs(item.impactoFin);
+      }
+    });
+
+    const liquido = totalAumento - totalReducao;
+    const fmtMoney = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    document.getElementById('totalItens').innerText = totalItens;
+    document.getElementById('valorTotal').innerText = fmtMoney(valorTotal);
+    document.getElementById('totalReducao').innerText = fmtMoney(totalReducao);
+    document.getElementById('totalAumento').innerText = fmtMoney(totalAumento);
+    
+    const elLiquido = document.getElementById('resultadoLiquido');
+    elLiquido.innerText = fmtMoney(liquido);
+    elLiquido.className = `card-value ${liquido >= 0 ? 'text-green' : 'text-red'}`;
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+
+    let list = rawData[currentTab] || [];
+    const query = document.getElementById('searchInput').value.toLowerCase();
+
+    if (currentFilter === 'reducao') {
+      list = list.filter(i => i.impactoFin > 0);
+    } else if (currentFilter === 'aumento') {
+      list = list.filter(i => i.impactoFin < 0);
+    } else if (currentFilter === 'valorTotal') {
+      list = list.filter(i => i.estAtual > 0);
+    }
+
+    if (query) {
+      list = list.filter(i => 
+        String(i.codigo).toLowerCase().includes(query) || 
+        String(i.descricao).toLowerCase().includes(query)
+      );
+    }
+
+    if (list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #64748b;">Nenhum item encontrado para esta visualização/filtro.</td></tr>`;
+      return;
+    }
+
+    const fmtMoney = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const fmtNum = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    list.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><b>${item.codigo}</b></td>
+        <td>${item.descricao}</td>
+        <td>${fmtNum(item.estMin)}</td>
+        <td>${fmtNum(item.estMax)}</td>
+        <td>${fmtNum(item.estAnterior)}</td>
+        <td>${fmtNum(item.estAtual)}</td>
+        <td class="${item.variacao > 0 ? 'text-red' : item.variacao < 0 ? 'text-green' : ''}">
+          ${fmtNum(item.variacao)}
+        </td>
+        <td>${fmtMoney(item.vUnitario)}</td>
+        <td class="${item.impactoFin > 0 ? 'text-red' : item.impactoFin < 0 ? 'text-green' : ''}">
+          <b>${fmtMoney(item.impactoFin)}</b>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+</script>
+
+
+<script src="../auth-guard.js"></script>
+
+<button id="exportarMigracao" style="position:fixed;right:16px;bottom:16px;z-index:99999;background:#0b6b62;color:#fff;border:0;border-radius:9px;padding:12px 14px;font:600 14px system-ui;box-shadow:0 3px 12px #0003;cursor:pointer">Baixar cópia dos dados locais</button>
+<script>document.getElementById('exportarMigracao').onclick=()=>{const keys=['colaboradores_v120','escalas_v120','historico_escalas_v120','estoque_analise_data','estoque_analise_date'];const dados={origem:location.pathname,exportadoEm:new Date().toISOString(),dados:{}};keys.forEach(k=>{const v=localStorage.getItem(k);if(v!==null)dados.dados[k]=JSON.parse(v)});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(dados,null,2)],{type:'application/json'}));a.download='migracao-dados-pce.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);alert('Cópia baixada. Guarde esse arquivo para importar no portal.');};</script>
+</body>
+</html>
